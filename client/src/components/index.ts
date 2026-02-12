@@ -1,4 +1,4 @@
-import './styles.css';
+import '../design-system/styles.css';
 import { Button } from './Button';
 import { Card } from './Card';
 import { Input, Textarea } from './Input';
@@ -7,9 +7,6 @@ import { Modal } from './Modal';
 import { Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarItem } from './Sidebar';
 import { Navbar } from './Navbar';
 import { Chart } from './Chart';
-import { ChatPanel } from './ChatPanel';
-import { CodePanel } from './CodePanel';
-import { PreviewPanel } from './PreviewPanel';
 
 export {
     Button,
@@ -24,10 +21,7 @@ export {
     SidebarFooter,
     SidebarItem,
     Navbar,
-    Chart,
-    ChatPanel,
-    CodePanel,
-    PreviewPanel
+    Chart
 };
 
 export const COMPONENT_MAP: Record<string, React.FC<any>> = {
@@ -40,9 +34,6 @@ export const COMPONENT_MAP: Record<string, React.FC<any>> = {
     Sidebar,
     Navbar,
     Chart,
-    ChatPanel,
-    CodePanel,
-    PreviewPanel,
 };
 
 export const COMPONENT_WHITELIST = Object.keys(COMPONENT_MAP);
