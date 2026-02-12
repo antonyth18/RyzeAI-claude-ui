@@ -1,17 +1,19 @@
 import { Sun, Moon, Command, Play, Check, ChevronDown, GitBranch } from 'lucide-react';
 import { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import type { ProjectMeta } from '../../services/agentService';
 
 type Mode = 'builder' | 'code' | 'inspect';
 
 interface AppHeaderProps {
   onOpenCommandPalette: () => void;
+  meta: ProjectMeta | null;
 }
 
-export function AppHeader({ onOpenCommandPalette }: AppHeaderProps) {
+export function AppHeader({ onOpenCommandPalette, meta }: AppHeaderProps) {
+
   const { theme, toggleTheme } = useTheme();
   const [activeMode, setActiveMode] = useState<Mode>('builder');
-  const [isSaved, setIsSaved] = useState(true);
 
   return (
     <div className="h-14 border-b border-[#E5E7EB]/60 dark:border-[#1F2937]/60 bg-white/95 dark:bg-[#111318]/95 backdrop-blur-lg flex items-center justify-between px-6 transition-all duration-300 relative z-10">
@@ -29,7 +31,7 @@ export function AppHeader({ onOpenCommandPalette }: AppHeaderProps) {
         {/* Project Name */}
         <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#1a1f2e] transition-all duration-200 group active:scale-98">
           <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 transition-colors duration-300">
-            Professional AI Interface Design
+            {meta?.name || 'Loading Project...'}
           </span>
           <ChevronDown size={14} className="text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-all duration-200" />
         </button>
@@ -38,9 +40,10 @@ export function AppHeader({ onOpenCommandPalette }: AppHeaderProps) {
         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#F6F7F9] dark:bg-[#1a1f2e] border border-[#E5E7EB] dark:border-[#2a3441] rounded-full transition-all duration-300">
           <GitBranch size={12} className="text-neutral-500 dark:text-neutral-400" />
           <span className="text-xs font-medium text-neutral-600 dark:text-neutral-300 transition-colors duration-300">
-            main
+            {meta?.branch || '...'}
           </span>
         </div>
+
       </div>
 
       {/* Center Section - Segmented Control */}
@@ -48,11 +51,10 @@ export function AppHeader({ onOpenCommandPalette }: AppHeaderProps) {
         <div className="flex items-center gap-1 p-1 bg-[#F6F7F9] dark:bg-[#0d1015] border border-[#E5E7EB] dark:border-[#2a3441] rounded-xl shadow-sm transition-all duration-300">
           <button
             onClick={() => setActiveMode('builder')}
-            className={`relative px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              activeMode === 'builder'
-                ? 'text-neutral-900 dark:text-neutral-100 shadow-sm'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
-            }`}
+            className={`relative px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeMode === 'builder'
+              ? 'text-neutral-900 dark:text-neutral-100 shadow-sm'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
+              }`}
           >
             {activeMode === 'builder' && (
               <div className="absolute inset-0 bg-white dark:bg-[#1a1f2e] rounded-lg shadow-md transition-all duration-300" />
@@ -65,11 +67,10 @@ export function AppHeader({ onOpenCommandPalette }: AppHeaderProps) {
 
           <button
             onClick={() => setActiveMode('code')}
-            className={`relative px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              activeMode === 'code'
-                ? 'text-neutral-900 dark:text-neutral-100 shadow-sm'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
-            }`}
+            className={`relative px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeMode === 'code'
+              ? 'text-neutral-900 dark:text-neutral-100 shadow-sm'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
+              }`}
           >
             {activeMode === 'code' && (
               <div className="absolute inset-0 bg-white dark:bg-[#1a1f2e] rounded-lg shadow-md transition-all duration-300" />
@@ -82,11 +83,10 @@ export function AppHeader({ onOpenCommandPalette }: AppHeaderProps) {
 
           <button
             onClick={() => setActiveMode('inspect')}
-            className={`relative px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              activeMode === 'inspect'
-                ? 'text-neutral-900 dark:text-neutral-100 shadow-sm'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
-            }`}
+            className={`relative px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeMode === 'inspect'
+              ? 'text-neutral-900 dark:text-neutral-100 shadow-sm'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
+              }`}
           >
             {activeMode === 'inspect' && (
               <div className="absolute inset-0 bg-white dark:bg-[#1a1f2e] rounded-lg shadow-md transition-all duration-300" />
@@ -135,30 +135,27 @@ export function AppHeader({ onOpenCommandPalette }: AppHeaderProps) {
           aria-label="Toggle theme"
         >
           <div className="relative w-5 h-5">
-            <Sun 
-              size={20} 
-              className={`absolute inset-0 text-amber-500 transition-all duration-300 ${
-                theme === 'light' 
-                  ? 'opacity-100 rotate-0 scale-100' 
-                  : 'opacity-0 rotate-180 scale-50'
-              }`}
+            <Sun
+              size={20}
+              className={`absolute inset-0 text-amber-500 transition-all duration-300 ${theme === 'light'
+                ? 'opacity-100 rotate-0 scale-100'
+                : 'opacity-0 rotate-180 scale-50'
+                }`}
             />
-            <Moon 
-              size={20} 
-              className={`absolute inset-0 text-indigo-400 transition-all duration-300 ${
-                theme === 'dark' 
-                  ? 'opacity-100 rotate-0 scale-100' 
-                  : 'opacity-0 -rotate-180 scale-50'
-              }`}
+            <Moon
+              size={20}
+              className={`absolute inset-0 text-indigo-400 transition-all duration-300 ${theme === 'dark'
+                ? 'opacity-100 rotate-0 scale-100'
+                : 'opacity-0 -rotate-180 scale-50'
+                }`}
             />
           </div>
-          
+
           {/* Hover glow effect */}
-          <div className={`absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${
-            theme === 'light' 
-              ? 'bg-amber-500/10' 
-              : 'bg-indigo-500/10'
-          }`} />
+          <div className={`absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${theme === 'light'
+            ? 'bg-amber-500/10'
+            : 'bg-indigo-500/10'
+            }`} />
         </button>
       </div>
     </div>

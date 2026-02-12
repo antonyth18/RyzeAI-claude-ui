@@ -1,42 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Sparkles } from 'lucide-react';
-
-interface Message {
-  id: number;
-  role: 'user' | 'assistant';
-  content: string;
-  actions?: string[];
-  timestamp: string;
-}
-
-const initialMessages: Message[] = [
-  {
-    id: 1,
-    role: 'user',
-    content: 'Create a hero section with a gradient background and CTA button',
-    timestamp: '2:34 PM'
-  },
-  {
-    id: 2,
-    role: 'assistant',
-    content: 'I\'ll create a modern hero section for you with a clean gradient and prominent call-to-action.',
-    actions: ['Generating component...', 'Updating layout...', 'Adding styles...'],
-    timestamp: '2:34 PM'
-  },
-  {
-    id: 3,
-    role: 'user',
-    content: 'Make the button more prominent with a hover effect',
-    timestamp: '2:36 PM'
-  },
-  {
-    id: 4,
-    role: 'assistant',
-    content: 'Updated the button with a scale hover effect and enhanced shadow for better prominence.',
-    actions: ['Refactoring styles...'],
-    timestamp: '2:36 PM'
-  }
-];
+import { useAgent } from '../../hooks/useAgent';
 
 const quickActions = [
   'Add Section',
@@ -45,10 +9,12 @@ const quickActions = [
   'Add Animation'
 ];
 
-export function ChatPanel() {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+interface ChatPanelProps {
+  agent: ReturnType<typeof useAgent>;
+}
+
+export function ChatPanel({ agent }: ChatPanelProps) {
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -57,30 +23,14 @@ export function ChatPanel() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping]);
+  }, [agent.messages, agent.isLoading]);
 
   const handleSend = () => {
-    if (!input.trim()) return;
-
-    const now = new Date();
-    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-
-    const newMessage: Message = {
-      id: messages.length + 1,
-      role: 'user',
-      content: input,
-      timestamp: time
-    };
-
-    setMessages([...messages, newMessage]);
+    if (!input.trim() || agent.isLoading) return;
+    agent.sendMessage(input);
     setInput('');
-    
-    // Simulate AI typing
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-    }, 2000);
   };
+
 
   const handleQuickAction = (action: string) => {
     setInput(action);
@@ -116,7 +66,7 @@ export function ChatPanel() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-5 py-5">
         <div className="space-y-6">
-          {messages.map((message) => (
+          {agent.messages.map((message) => (
             <div key={message.id} className="space-y-2 animate-in fade-in duration-300">
               <div className="flex items-center gap-2">
                 <div className="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 dark:text-neutral-500 transition-colors duration-300">
@@ -126,30 +76,16 @@ export function ChatPanel() {
                   {message.timestamp}
                 </div>
               </div>
-              <div className={`text-[13px] leading-relaxed transition-all duration-300 ${
-                message.role === 'user' 
-                  ? 'text-neutral-900 dark:text-neutral-100 p-3 bg-white dark:bg-[#1a1f2e] rounded-lg border border-[#E5E7EB] dark:border-[#2a3441]' 
-                  : 'text-neutral-700 dark:text-neutral-300 p-3 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-[#1a1f2e] dark:to-[#151a27] rounded-lg shadow-sm'
-              }`}>
+              <div className={`text-[13px] leading-relaxed transition-all duration-300 ${message.role === 'user'
+                ? 'text-neutral-900 dark:text-neutral-100 p-3 bg-white dark:bg-[#1a1f2e] rounded-lg border border-[#E5E7EB] dark:border-[#2a3441]'
+                : 'text-neutral-700 dark:text-neutral-300 p-3 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-[#1a1f2e] dark:to-[#151a27] rounded-lg shadow-sm'
+                }`}>
                 {message.content}
               </div>
-              {message.actions && (
-                <div className="space-y-1.5 mt-2 pl-3">
-                  {message.actions.map((action, i) => (
-                    <div 
-                      key={i} 
-                      className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2 transition-colors duration-300"
-                    >
-                      <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                      {action}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           ))}
-          
-          {isTyping && (
+
+          {agent.isLoading && (
             <div className="space-y-2 animate-in fade-in duration-300">
               <div className="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 dark:text-neutral-500">
                 Assistant
@@ -163,7 +99,8 @@ export function ChatPanel() {
               </div>
             </div>
           )}
-          
+
+
           <div ref={messagesEndRef} />
         </div>
       </div>
