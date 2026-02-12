@@ -62,7 +62,7 @@ app.get('/api/project/meta', (req: Request, res: Response) => {
 
 app.post('/api/agent/generate', async (req: Request, res: Response) => {
     try {
-        const { prompt } = req.body;
+        const { prompt, previousPlan } = req.body;
 
         // 1. Add user message to history
         const newMessage = {
@@ -74,7 +74,7 @@ app.post('/api/agent/generate', async (req: Request, res: Response) => {
         chatMessages.push(newMessage as any);
 
         // 2. Run Pipeline (Asynchronous)
-        const plan = await runPlanner(prompt);
+        const plan = await runPlanner(prompt, previousPlan);
         const code = await runGenerator(prompt, plan);
         const explanation = await runExplainer(prompt, code);
         const validation = await runValidator(code);
@@ -85,23 +85,39 @@ app.post('/api/agent/generate', async (req: Request, res: Response) => {
 
         // 3. Update Global State
         currentCode = code;
+
+        const parsedPlan = JSON.parse(plan);
+        const planSummary = `
+### 🏗️ Design Plan
+**Intent**: ${parsedPlan.intent}
+**Steps**:
+${parsedPlan.steps.map((s: string) => `- ${s}`).join('\n')}
+
+**Components**: ${parsedPlan.componentsToUse.join(', ')}
+**Strategy**: ${parsedPlan.layoutStrategy}
+
+---
+${explanation}
+        `.trim();
+
         const aiMessage = {
             id: chatMessages.length + 1,
             role: 'assistant',
-            content: explanation,
+            content: planSummary,
             timestamp: new Date().toLocaleTimeString()
         };
         chatMessages.push(aiMessage as any);
 
         // 4. Return combined result as requested
         res.json({
-            plan,
+            plan: parsedPlan,
             code,
             explanation
         });
-    } catch (error) {
+
+    } catch (error: any) {
         console.error("Agent Pipeline Error:", error);
-        res.status(500).json({ error: "Pipeline failed" });
+        res.status(500).json({ error: error.message || "Pipeline failed" });
     }
 });
 
