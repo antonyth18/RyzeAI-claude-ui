@@ -30,6 +30,10 @@ export const agentService = {
         const response = await axios.get(`${API_BASE_URL}/code/current`);
         return response.data;
     },
+    getVersions: async (): Promise<any> => {
+        const response = await axios.get(`${API_BASE_URL}/versions`);
+        return response.data;
+    },
 
     getFiles: async (): Promise<ProjectFile[]> => {
         const response = await axios.get(`${API_BASE_URL}/files`);
@@ -41,10 +45,12 @@ export const agentService = {
         return response.data;
     },
 
-    generateCode: async (prompt: string): Promise<{ status: string }> => {
-        const response = await axios.post(`${API_BASE_URL}/agent/generate`, { prompt });
+    generateCode: async (prompt: string, previousPlan?: any): Promise<{ plan: any; code: string; explanation: string }> => {
+        const response = await axios.post(`${API_BASE_URL}/agent/generate`, { prompt, previousPlan });
         return response.data;
     },
+
+
 
     refactorCode: async (): Promise<{ status: string }> => {
         const response = await axios.post(`${API_BASE_URL}/agent/refactor`);
@@ -56,8 +62,8 @@ export const agentService = {
         return response.data;
     },
 
-    rollbackVersion: async (): Promise<{ status: string }> => {
-        const response = await axios.post(`${API_BASE_URL}/version/rollback`);
+    rollbackVersion: async (id: string): Promise<{ status: string; version: any }> => {
+        const response = await axios.post(`${API_BASE_URL}/version/rollback`, { id });
         return response.data;
     }
 };

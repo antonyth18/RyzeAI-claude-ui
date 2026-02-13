@@ -4,6 +4,7 @@ import { runPlanner } from './agent/planner';
 import { runGenerator } from './agent/generator';
 import { runExplainer } from './agent/explainer';
 import { runValidator } from './agent/validator';
+import * as versionStore from './agent/versionStore';
 
 const app = express();
 const PORT = 5001;
@@ -88,6 +89,10 @@ app.post('/api/agent/generate', async (req: Request, res: Response) => {
         currentCode = code;
 
         const parsedPlan = JSON.parse(plan);
+
+        // Save to version store
+        versionStore.addVersion(prompt, parsedPlan, code, explanation);
+
         const planSummary = `
 ### 🏗️ Design Plan
 **Intent**: ${parsedPlan.intent}
@@ -136,7 +141,22 @@ app.post('/api/agent/regenerate', (req: Request, res: Response) => {
 });
 
 app.post('/api/version/rollback', (req: Request, res: Response) => {
-    res.json({ status: "rolled_back" });
+    const { id } = req.body;
+    const version = versionStore.rollback(id);
+
+    if (!version) {
+        return res.status(404).json({ error: "Version not found" });
+    }
+
+    currentCode = version.code;
+    res.json({
+        status: "rolled_back",
+        version
+    });
+});
+
+app.get('/api/versions', (req: Request, res: Response) => {
+    res.json(versionStore.getAllVersions());
 });
 
 app.listen(PORT, () => {
