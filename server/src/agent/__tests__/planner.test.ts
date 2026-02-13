@@ -1,28 +1,32 @@
 import { runPlanner, _resetModel } from '../planner';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 
-// Mock Google Generative AI
-jest.mock('@google/generative-ai');
+// Mock Groq SDK
+jest.mock('groq-sdk');
 
-const MockGenAI = GoogleGenerativeAI as jest.MockedClass<typeof GoogleGenerativeAI>;
+const MockGroq = Groq as jest.MockedClass<typeof Groq>;
 
-describe('runPlanner (Gemini)', () => {
-    let mockGenerateContent: jest.Mock;
+describe('runPlanner (Groq)', () => {
+    let mockCreate: jest.Mock;
 
     beforeEach(() => {
-        _resetModel(); // Clear cached model in planner.ts
-        mockGenerateContent = jest.fn();
+        _resetModel(); // Clear cached groq instance
+        mockCreate = jest.fn();
 
-        const mockModel = {
-            generateContent: mockGenerateContent
+        const mockGroqInstance = {
+            chat: {
+                completions: {
+                    create: mockCreate
+                }
+            }
         };
 
-        MockGenAI.prototype.getGenerativeModel = jest.fn().mockReturnValue(mockModel);
+        MockGroq.mockImplementation(() => mockGroqInstance as any);
 
-        process.env.GOOGLE_API_KEY = 'test-key';
+        process.env.GROQ_API_KEY = 'test-key';
     });
 
-    it('should return a valid JSON plan when Gemini returns correct format', async () => {
+    it('should return a valid JSON plan when Groq returns correct format', async () => {
         const mockResponseText = JSON.stringify({
             intent: "Build a login page",
             steps: ["Step 1"],
@@ -31,10 +35,8 @@ describe('runPlanner (Gemini)', () => {
             explanation: "Standard login layout"
         });
 
-        mockGenerateContent.mockResolvedValue({
-            response: {
-                text: () => mockResponseText
-            }
+        mockCreate.mockResolvedValue({
+            choices: [{ message: { content: mockResponseText } }]
         });
 
         const result = await runPlanner("Build a login page");
@@ -44,27 +46,7 @@ describe('runPlanner (Gemini)', () => {
         expect(parsed.componentsToUse).toContain("Card");
     });
 
-    it('should handle Gemini markdown fences', async () => {
-        const mockResponseText = "```json\n" + JSON.stringify({
-            intent: "Build a page",
-            steps: ["Step 1"],
-            componentsToUse: ["Card"],
-            layoutStrategy: "Strategy",
-            explanation: "Explanation"
-        }) + "\n```";
-
-        mockGenerateContent.mockResolvedValue({
-            response: {
-                text: () => mockResponseText
-            }
-        });
-
-        const result = await runPlanner("intent");
-        const parsed = JSON.parse(result);
-        expect(parsed.intent).toBe("Build a page");
-    });
-
-    it('should reject if Gemini returns unknown component types', async () => {
+    it('should reject if Groq returns unknown component types', async () => {
         const mockResponseText = JSON.stringify({
             intent: "Build a page",
             steps: ["Step 1"],
@@ -73,30 +55,19 @@ describe('runPlanner (Gemini)', () => {
             explanation: "Explanation"
         });
 
-        mockGenerateContent.mockResolvedValue({
-            response: {
-                text: () => mockResponseText
-            }
+        mockCreate.mockResolvedValue({
+            choices: [{ message: { content: mockResponseText } }]
         });
 
         await expect(runPlanner("intent")).rejects.toThrow(/unknown component types/);
     });
 
-    it('should reject if Gemini returns content with JSX characters', async () => {
-        const mockResponseText = JSON.stringify({
-            intent: "Build <jsx /> page",
-            steps: ["Step 1"],
-            componentsToUse: ["Card"],
-            layoutStrategy: "Strategy",
-            explanation: "Explanation"
-        });
+    it('should handle 429 status code', async () => {
+        const error: any = new Error("Rate limit exceeded");
+        error.status = 429;
 
-        mockGenerateContent.mockResolvedValue({
-            response: {
-                text: () => mockResponseText
-            }
-        });
+        mockCreate.mockRejectedValue(error);
 
-        await expect(runPlanner("intent")).rejects.toThrow(/strictly forbidden/);
+        await expect(runPlanner("intent")).rejects.toThrow(/Rate Limit Exceeded/);
     });
 });

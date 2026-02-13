@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from "groq-sdk";
 import { z } from 'zod';
 import * as dotenv from 'dotenv';
 import path from 'path';
@@ -6,20 +6,19 @@ import path from 'path';
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-// Initialize GenAI lazily to ensure environment variables are loaded and for easier testing
-let model: any = null;
+// Initialize Groq lazily to ensure environment variables are loaded and for easier testing
+let groq: Groq | null = null;
 
 export function _resetModel() {
-    model = null;
+    groq = null;
 }
 
-function getModel() {
-    if (!model) {
-        const apiKey = process.env.GOOGLE_API_KEY || '';
-        const genAI = new GoogleGenerativeAI(apiKey);
-        model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+function getGroq() {
+    if (!groq) {
+        const apiKey = process.env.GROQ_API_KEY || '';
+        groq = new Groq({ apiKey });
     }
-    return model;
+    return groq;
 }
 
 
@@ -53,7 +52,9 @@ const PlanSchema = z.object({
 
 export type Plan = z.infer<typeof PlanSchema>;
 
-export async function runPlanner(userIntent: string, previousPlan?: string): Promise<string> {
+export async function runPlanner(userIntent: string, previousPlan?: any): Promise<string> {
+    const stringifiedPreviousPlan = typeof previousPlan === 'object' ? JSON.stringify(previousPlan, null, 2) : previousPlan;
+
     const systemPrompt = `
 You are an expert Frontend Architect. Your job is to create a high-level plan for building a UI based on the user's intent.
 Your output MUST be a strict JSON object. No markdown, no prose, no React code, and no JSX.
@@ -77,27 +78,25 @@ ${COMPONENT_WHITELIST.map(c => `- ${c}`).join('\n')}
 
     const userPrompt = `
 User Intent: "${userIntent}"
-${previousPlan ? `Previous Plan context: "${previousPlan}"` : ""}
+${stringifiedPreviousPlan ? `Previous Plan context:\n${stringifiedPreviousPlan}` : ""}
 
 Generate a strict JSON UI plan.
 `;
 
     try {
-        const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
-        const result = await getModel().generateContent(fullPrompt);
-        const response = await result.response;
-        let rawContent = response.text();
+        const chatCompletion = await getGroq().chat.completions.create({
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+            ],
+            model: "llama-3.3-70b-versatile",
+            response_format: { type: "json_object" }
+        });
 
-        // Gemini sometimes includes markdown fences, strip them if present
-        if (rawContent.includes('```json')) {
-            rawContent = rawContent.replace(/```json\n?/, '').replace(/\n?```/, '').trim();
-        } else if (rawContent.includes('```')) {
-            rawContent = rawContent.replace(/```\n?/, '').replace(/\n?```/, '').trim();
-        }
-
+        let rawContent = chatCompletion.choices[0]?.message?.content || "";
 
         if (!rawContent) {
-            throw new Error("Gemini returned an empty response.");
+            throw new Error("Groq returned an empty response.");
         }
 
         // Parse JSON
@@ -105,8 +104,8 @@ Generate a strict JSON UI plan.
         try {
             parsedData = JSON.parse(rawContent);
         } catch (e) {
-            console.error("Failed to parse Gemini content:", rawContent);
-            throw new Error("Failed to parse Gemini response as JSON.");
+            console.error("Failed to parse Groq content:", rawContent);
+            throw new Error("Failed to parse Groq response as JSON.");
         }
 
         // Validate structure and whitelist with Zod
@@ -118,10 +117,14 @@ Generate a strict JSON UI plan.
 
         return JSON.stringify(validationResult.data, null, 2);
     } catch (error: any) {
-        console.error("Error in runPlanner (Gemini):", error.message);
+        console.error("Error in runPlanner (Groq):", error.message);
 
-        if (error.message.includes("API key not valid")) {
-            throw new Error("Google API Key is missing or invalid. Please check your .env file.");
+        if (error.status === 429) {
+            throw new Error("Groq API Rate Limit Exceeded. Please wait a moment and try again.");
+        }
+
+        if (error.message.includes("API key") || error.status === 401) {
+            throw new Error("Groq API Key is missing or invalid. Please check your .env file.");
         }
         throw error;
     }

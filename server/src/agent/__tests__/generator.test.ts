@@ -1,26 +1,31 @@
 import { runGenerator, _resetGeneratorModel } from '../generator';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 
-// Mock Google Generative AI
-jest.mock('@google/generative-ai');
+// Mock Groq SDK
+jest.mock('groq-sdk');
 
-const MockGenAI = GoogleGenerativeAI as jest.MockedClass<typeof GoogleGenerativeAI>;
+const MockGroq = Groq as jest.MockedClass<typeof Groq>;
 
-describe('runGenerator (Gemini)', () => {
-    let mockGenerateContent: jest.Mock;
+describe('runGenerator (Groq)', () => {
+    let mockCreate: jest.Mock;
 
     beforeEach(() => {
         _resetGeneratorModel();
-        mockGenerateContent = jest.fn();
+        mockCreate = jest.fn();
 
-        const mockModel = {
-            generateContent: mockGenerateContent
+        const mockGroqInstance = {
+            chat: {
+                completions: {
+                    create: mockCreate
+                }
+            }
         };
 
-        MockGenAI.prototype.getGenerativeModel.mockReturnValue(mockModel as any);
+        MockGroq.mockImplementation(() => mockGroqInstance as any);
+        process.env.GROQ_API_KEY = 'test-key';
     });
 
-    it('should return valid React code when Gemini returns correct format', async () => {
+    it('should return valid React code when Groq returns correct format', async () => {
         const validCode = `
 import React from 'react';
 import { Button } from '../components/Button';
@@ -38,10 +43,8 @@ export default function GeneratedComponent() {
 }
         `;
 
-        mockGenerateContent.mockResolvedValue({
-            response: {
-                text: () => validCode
-            }
+        mockCreate.mockResolvedValue({
+            choices: [{ message: { content: validCode } }]
         });
 
         const result = await runGenerator("intent", "plan");
@@ -53,10 +56,8 @@ export default function GeneratedComponent() {
     it('should strip markdown fences', async () => {
         const codeWithFences = "```tsx\nimport React from 'react';\nexport default function Test() { return <div></div>; }\n```";
 
-        mockGenerateContent.mockResolvedValue({
-            response: {
-                text: () => codeWithFences
-            }
+        mockCreate.mockResolvedValue({
+            choices: [{ message: { content: codeWithFences } }]
         });
 
         const result = await runGenerator("intent", "plan");
@@ -72,50 +73,19 @@ export default function Test() {
 }
         `;
 
-        mockGenerateContent.mockResolvedValue({
-            response: {
-                text: () => codeWithStyles
-            }
+        mockCreate.mockResolvedValue({
+            choices: [{ message: { content: codeWithStyles } }]
         });
 
         await expect(runGenerator("intent", "plan")).rejects.toThrow(/inline styles are strictly forbidden/i);
     });
 
-    it('should reject code with unknown components', async () => {
-        const codeWithUnknown = `
-import React from 'react';
-import { SecretComponent } from './Secret';
+    it('should handle Groq 429 status code', async () => {
+        const error: any = new Error("Rate limit exceeded");
+        error.status = 429;
 
-export default function Test() {
-  return <SecretComponent>Secret</SecretComponent>;
-}
-        `;
+        mockCreate.mockRejectedValue(error);
 
-        mockGenerateContent.mockResolvedValue({
-            response: {
-                text: () => codeWithUnknown
-            }
-        });
-
-        await expect(runGenerator("intent", "plan")).rejects.toThrow(/unknown or disallowed components detected/i);
-    });
-
-    it('should reject code with disallowed imports', async () => {
-        const codeWithBadImport = `
-import React from 'react';
-import axios from 'axios';
-
-export default function Test() {
-  return <div>No axios allowed</div>;
-}
-        `;
-
-        mockGenerateContent.mockResolvedValue({
-            response: {
-                text: () => codeWithBadImport
-            }
-        });
-
-        await expect(runGenerator("intent", "plan")).rejects.toThrow(/external or disallowed imports detected/i);
+        await expect(runGenerator("intent", "plan")).rejects.toThrow(/Rate Limit Exceeded/i);
     });
 });

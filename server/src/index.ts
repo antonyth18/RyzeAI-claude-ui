@@ -76,8 +76,9 @@ app.post('/api/agent/generate', async (req: Request, res: Response) => {
         // 2. Run Pipeline (Asynchronous)
         const plan = await runPlanner(prompt, previousPlan);
         const code = await runGenerator(prompt, plan);
-        const explanation = await runExplainer(prompt, code);
+        const explanation = await runExplainer(prompt, plan, previousPlan);
         const validation = await runValidator(code);
+
 
         if (!validation.valid) {
             console.warn("Generated code failed mock validation:", validation.errors);
@@ -117,9 +118,14 @@ ${explanation}
 
     } catch (error: any) {
         console.error("Agent Pipeline Error:", error);
-        res.status(500).json({ error: error.message || "Pipeline failed" });
+
+        const isQuotaError = error.message.includes("Quota Exceeded") || error.message.includes("429") || error.message.includes("rate limits");
+        const status = isQuotaError ? 429 : 500;
+
+        res.status(status).json({ error: error.message || "Pipeline failed" });
     }
 });
+
 
 app.post('/api/agent/refactor', (req: Request, res: Response) => {
     res.json({ status: "refactoring_started" });

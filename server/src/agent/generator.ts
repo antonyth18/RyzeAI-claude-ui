@@ -1,42 +1,88 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { z } from 'zod';
+import Groq from "groq-sdk";
 import * as dotenv from 'dotenv';
 import path from 'path';
 
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-let model: any = null;
+let groq: Groq | null = null;
 
 export function _resetGeneratorModel() {
-  model = null;
+  groq = null;
 }
 
-function getModel() {
-  if (!model) {
-    const apiKey = process.env.GOOGLE_API_KEY || '';
-    const genAI = new GoogleGenerativeAI(apiKey);
-    model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+function getGroq() {
+  if (!groq) {
+    const apiKey = process.env.GROQ_API_KEY || '';
+    groq = new Groq({ apiKey });
   }
-  return model;
+  return groq;
 }
 
+const COMPONENT_WHITELIST = ['Button', 'Card', 'Input', 'Textarea', 'Table', 'Modal', 'Sidebar', 'Navbar', 'Chart'];
 
-const COMPONENT_WHITELIST = [
-  'Button',
-  'Card',
-  'Input',
-  'Textarea',
-  'Table',
-  'Modal',
-  'Sidebar',
-  'Navbar',
-  'Chart'
-] as const;
+export async function runGenerator(prompt: string, plan: string): Promise<string> {
+  const systemPrompt = `
+You are an expert React Developer. Your task is to generate the code for a single React component named 'GeneratedComponent' based on a provided Design Plan.
 
-/**
- * Validation Layer: Check for disallowed patterns in generated code
- */
+STRICT CONSTRAINTS:
+1. ONLY use components from this whitelist: ${COMPONENT_WHITELIST.join(', ')}.
+2. Use standard lowercase HTML elements (div, section, header, nav, footer, p, h1-h6, etc.).
+3. DO NOT capitalize standard HTML tags (e.g., use <section>, NOT <Section>).
+4. ABSOLUTELY NO DOM interface names as component tags (e.g., NO <HTMLInputElement />).
+5. Import components from '../components/[ComponentName]' ONLY.
+6. Use Tailwind CSS for ALL styling.
+7. ABSOLUTELY NO inline styles (no 'style={{...}}').
+8. NO external imports other than 'react' and authorized components.
+9. Return ONLY the code. No markdown fences, no explanations.
+
+WHITELISTED COMPONENTS:
+${COMPONENT_WHITELIST.map(c => `- ${c}`).join('\n')}
+
+Example Import:
+import { Button } from '../components/Button';
+`;
+
+  const userPrompt = `
+User Intent: "${prompt}"
+Design Plan: 
+${plan}
+
+Generate the React component code.
+`;
+
+  try {
+    const chatCompletion = await getGroq().chat.completions.create({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      model: "llama-3.3-70b-versatile",
+    });
+
+    let code = chatCompletion.choices[0]?.message?.content || "";
+
+    // Strip markdown fences if present
+    if (code.includes('```')) {
+      code = code.replace(/```[a-z]*\n?/g, '').replace(/\n?```/g, '').trim();
+    }
+
+    // Log the generated code for debugging purposes
+    console.log("--- GENERATED CODE ---\n", code, "\n--- END GENERATED CODE ---");
+
+    // Validate the generated code
+    validateGeneratedCode(code);
+
+    return code;
+  } catch (error: any) {
+    console.error("Error in runGenerator (Groq):", error.message);
+    if (error.status === 429) {
+      throw new Error("Groq API Rate Limit Exceeded. Please wait a moment.");
+    }
+    throw error;
+  }
+}
+
 function validateGeneratedCode(code: string) {
   // 1. Check for inline styles (e.g., style={{...}})
   if (/style\s*=\s*{/.test(code)) {
@@ -72,59 +118,5 @@ function validateGeneratedCode(code: string) {
     if (!imp.includes('react') && !imp.includes('../components/')) {
       throw new Error(`External or disallowed imports detected: ${imp}`);
     }
-  }
-}
-
-export async function runGenerator(prompt: string, plan: string): Promise<string> {
-  const systemPrompt = `
-You are an expert React Developer. Your task is to generate the code for a single React component named 'GeneratedComponent' based on a provided Design Plan.
-
-STRICT CONSTRAINTS:
-1. ONLY use components from this whitelist: ${COMPONENT_WHITELIST.join(', ')}.
-2. Use standard lowercase HTML elements (div, section, header, nav, footer, p, h1-h6, etc.).
-3. DO NOT capitalize standard HTML tags (e.g., use <section>, NOT <Section>).
-4. ABSOLUTELY NO DOM interface names as component tags (e.g., NO <HTMLInputElement />).
-5. Import components from '../components/[ComponentName]' ONLY.
-6. Use Tailwind CSS for ALL styling.
-7. ABSOLUTELY NO inline styles (no 'style={{...}}').
-8. NO external imports other than 'react' and authorized components.
-9. Return ONLY the code. No markdown fences, no explanations.
-
-WHITELISTED COMPONENTS:
-${COMPONENT_WHITELIST.map(c => `- ${c}`).join('\n')}
-
-Example Import:
-import { Button } from '../components/Button';
-`;
-
-
-  const userPrompt = `
-User Intent: "${prompt}"
-Design Plan: 
-${plan}
-
-Generate the React component code.
-`;
-
-  try {
-    const result = await getModel().generateContent(`${systemPrompt}\n\n${userPrompt}`);
-    const response = await result.response;
-    let code = response.text();
-
-    // Strip markdown fences if present
-    if (code.includes('```')) {
-      code = code.replace(/```[a-z]*\n?/g, '').replace(/\n?```/g, '').trim();
-    }
-
-    // Log the generated code for debugging purposes
-    console.log("--- GENERATED CODE ---\n", code, "\n--- END GENERATED CODE ---");
-
-    // Validate the generated code
-    validateGeneratedCode(code);
-
-    return code;
-  } catch (error: any) {
-    console.error("Error in runGenerator (Gemini):", error.message);
-    throw error;
   }
 }
