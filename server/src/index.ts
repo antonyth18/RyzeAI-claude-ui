@@ -80,6 +80,13 @@ app.post('/api/agent/generate', async (req: Request, res: Response) => {
 
         // 3. Run Pipeline (Asynchronous)
         const plan = await runPlanner(prompt, previousPlan);
+        const parsedPlan = JSON.parse(plan);
+
+        console.log(`[BACKEND] Planner generated plan. Type: ${previousPlan ? 'Incremental (Operations Applied)' : 'Initial'}`);
+        if (previousPlan) {
+            console.log(`[BACKEND] Merged Plan Strategy: ${parsedPlan.layoutStrategy.substring(0, 50)}...`);
+        }
+
         const code = await runGenerator(prompt, plan);
         const explanation = await runExplainer(prompt, plan, previousPlan);
         const validation = await runValidator(code);
@@ -91,11 +98,12 @@ app.post('/api/agent/generate', async (req: Request, res: Response) => {
 
         // 4. Update Global State
         currentCode = code;
-
-        const parsedPlan = JSON.parse(plan);
+        console.log(`[BACKEND] Code updated successfully for prompt: "${prompt.substring(0, 30)}..."`);
+        console.log(`[BACKEND] Current Code Length: ${currentCode.length}`);
 
         // Save to version store
         versionStore.addVersion(prompt, parsedPlan, code, explanation);
+        console.log(`[BACKEND] Version saved. Total versions: ${versionStore.getAllVersions().length}`);
 
         const planSummary = `
 ### 🏗️ Design Plan
@@ -103,8 +111,8 @@ app.post('/api/agent/generate', async (req: Request, res: Response) => {
 **Steps**:
 ${parsedPlan.steps.map((s: string) => `- ${s}`).join('\n')}
 
+**Layout Strategy**: ${parsedPlan.layoutStrategy}
 **Components**: ${parsedPlan.componentsToUse.join(', ')}
-**Strategy**: ${parsedPlan.layoutStrategy}
 
 ---
 ${explanation}

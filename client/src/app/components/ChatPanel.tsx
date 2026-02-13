@@ -65,7 +65,9 @@ export function ChatPanel({ agent }: ChatPanelProps) {
           </div>
         </div>
         <div className="text-xs text-neutral-500 dark:text-neutral-400 transition-colors duration-300">
-          Editing: <span className="text-neutral-700 dark:text-neutral-200 font-medium">App.tsx</span>
+          Editing: <span className="text-neutral-700 dark:text-neutral-200 font-medium">
+            {agent.agentFiles.find(f => f.id === agent.activeFileId)?.name || 'New File'}
+          </span>
         </div>
       </div>
 

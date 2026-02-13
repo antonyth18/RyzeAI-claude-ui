@@ -21,9 +21,6 @@ function getGroq() {
     return groq;
 }
 
-
-
-
 // ... whitelist and schema remain same
 const COMPONENT_WHITELIST = [
     'Button',

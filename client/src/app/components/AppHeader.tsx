@@ -7,10 +7,11 @@ type Mode = 'builder' | 'code' | 'inspect';
 
 interface AppHeaderProps {
   onOpenCommandPalette: () => void;
+  onRun: () => void;
   meta: ProjectMeta | null;
 }
 
-export function AppHeader({ onOpenCommandPalette, meta }: AppHeaderProps) {
+export function AppHeader({ onOpenCommandPalette, onRun, meta }: AppHeaderProps) {
 
   const { theme, toggleTheme } = useTheme();
   const [activeMode, setActiveMode] = useState<Mode>('builder');
@@ -110,7 +111,10 @@ export function AppHeader({ onOpenCommandPalette, meta }: AppHeaderProps) {
         <div className="w-px h-6 bg-[#E5E7EB] dark:bg-[#2a3441] transition-colors duration-300" />
 
         {/* Run Button */}
-        <button className="flex items-center gap-2 px-4 py-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-neutral-900/20 dark:hover:shadow-neutral-100/20 transition-all duration-200 active:scale-95 group">
+        <button
+          onClick={onRun}
+          className="flex items-center gap-2 px-4 py-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-neutral-900/20 dark:hover:shadow-neutral-100/20 transition-all duration-200 active:scale-95 group"
+        >
           <Play size={14} className="group-hover:scale-110 transition-transform duration-200" fill="currentColor" />
           <span>Run</span>
         </button>

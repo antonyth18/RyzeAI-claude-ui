@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Monitor, Tablet, Smartphone, RotateCw } from 'lucide-react';
 import { useAgent } from '../../hooks/useAgent';
+import { PreviewRenderer } from '../../preview/PreviewRenderer';
 
 type Device = 'desktop' | 'tablet' | 'mobile';
 
@@ -72,24 +73,27 @@ export function PreviewPanel({ agent }: PreviewPanelProps) {
       {/* Preview Content */}
       <div className="flex-1 overflow-auto p-8 flex justify-center">
         <div
-          className="bg-white transition-all duration-300 shadow-xl rounded-lg overflow-hidden border border-neutral-200 relative p-4"
+          className="bg-white dark:bg-[#0D1117] transition-all duration-300 shadow-2xl rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 relative"
           style={{ width: getDeviceWidth(), height: '100%', minHeight: '400px' }}
         >
           {agent.isLoading ? (
-            <div className="flex items-center justify-center h-full text-neutral-400 italic">
-              Generating Preview...
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-neutral-400">
+              <div className="w-8 h-8 border-2 border-violet-500/20 border-t-violet-500 rounded-full animate-spin" />
+              <span className="text-sm font-medium animate-pulse">Rebuilding Preview...</span>
             </div>
           ) : (
-            <div className="preview-container">
-              <div className="mb-4 p-2 bg-blue-50 text-blue-700 text-xs rounded border border-blue-100">
-                Rendering Live Component:
+            <div className="preview-container h-full flex flex-col uppercase-none">
+              <div className="h-8 px-4 bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="text-[10px] font-bold tracking-widest text-neutral-400 dark:text-neutral-500">LIVE RENDERER</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] text-neutral-400 px-1.5 py-0.5 rounded border border-neutral-200 dark:border-neutral-800 font-mono">sandboxed</span>
+                </div>
               </div>
-              <div className="space-y-4">
-                <h1 className="text-2xl font-bold text-neutral-900">Live Preview</h1>
-                <p className="text-sm text-neutral-600">The code below is currently being served by your AI agent:</p>
-                <pre className="p-4 bg-neutral-50 rounded border border-neutral-100 text-[10px] overflow-hidden whitespace-pre-wrap">
-                  {agent.currentCode}
-                </pre>
+              <div className="flex-1 overflow-hidden relative bg-white">
+                <PreviewRenderer code={agent.currentCode} />
               </div>
             </div>
           )}

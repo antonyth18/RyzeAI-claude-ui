@@ -32,14 +32,15 @@ function AppContent() {
     <div className="h-screen flex flex-col bg-[#F3F4F6] dark:bg-[#0F1115] transition-colors duration-300">
       <AppHeader
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onRun={agent.refresh}
         meta={agent.meta}
       />
 
-      <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup orientation="horizontal">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <ResizablePanelGroup orientation="horizontal" key="ryze-layout-final-v1">
           {/* Left Panel - Chat */}
-          <ResizablePanel defaultSize="25" minSize="20" maxSize="40">
-            <div className="h-full border-r border-[#E5E7EB] dark:border-[#1F2937] transition-colors duration-300">
+          <ResizablePanel defaultSize={22} minSize={15}>
+            <div className="h-full border-r border-[#E5E7EB] dark:border-[#1F2937] transition-colors duration-300 flex flex-col min-w-0 overflow-hidden">
               <ChatPanel agent={agent} />
             </div>
           </ResizablePanel>
@@ -47,8 +48,8 @@ function AppContent() {
           <ResizableHandle withHandle />
 
           {/* Center Panel - Editor */}
-          <ResizablePanel defaultSize="40" minSize="30">
-            <div className="h-full border-r-2 border-[#E5E7EB] dark:border-[#1F2937] transition-colors duration-300 relative">
+          <ResizablePanel defaultSize={48} minSize={30}>
+            <div className="h-full border-r-2 border-[#E5E7EB] dark:border-[#1F2937] transition-colors duration-300 relative flex flex-col min-w-0 overflow-hidden">
               <div className="absolute -right-px top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-violet-500/30 to-transparent pointer-events-none" />
               <CodeEditor agent={agent} />
             </div>
@@ -57,15 +58,13 @@ function AppContent() {
           <ResizableHandle withHandle />
 
           {/* Right Panel - Preview */}
-          <ResizablePanel defaultSize="35" minSize="25">
-
-
-            <div className="h-full overflow-hidden">
+          <ResizablePanel defaultSize={30} minSize={20}>
+            <div className="h-full flex flex-col min-w-0 overflow-hidden">
               <PreviewPanel agent={agent} />
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
-      </div>
+      </main>
 
       <CommandPalette
         isOpen={isCommandPaletteOpen}

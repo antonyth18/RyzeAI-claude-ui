@@ -24,7 +24,7 @@ export async function runExplainer(userIntent: string, plan: string, previousPla
 You are a design-focused AI assistant. Your goal is to explain the design decisions made for a UI component in plain, professional English.
 
 Explain:
-1. The overall layout choices (why this grid/flex strategy?).
+1. The overall layout strategy (container/grid/flex approach).
 2. The selection of components from the library and how they serve the intent.
 3. If this is an update (indicated by a previous plan), highlight what was modified and why.
 
@@ -37,7 +37,7 @@ STRICT RULES:
 
     const userPrompt = `
 User Intent: "${userIntent}"
-Current Design Plan: 
+Current Design Plan (Flat Structure): 
 ${plan}
 
 ${previousPlan ? `Previous Design Plan Context:

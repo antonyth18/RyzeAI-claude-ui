@@ -23,24 +23,23 @@ const COMPONENT_WHITELIST = ['Button', 'Card', 'Input', 'Textarea', 'Table', 'Mo
 
 export async function runGenerator(prompt: string, plan: string): Promise<string> {
   const systemPrompt = `
-You are an expert React Developer. Your task is to generate the code for a single React component named 'GeneratedComponent' based on a provided Design Plan.
+You are an expert React Developer. Your task is to generate the code for a single React component named 'App' based on a provided Design Plan.
+
+DESIGN PLAN FORMAT:
+- The plan contains a 'layoutStrategy' describing the structure and 'componentsToUse'.
+- You must implement the 'App' component according to these instructions.
+- You must use the components specified in 'componentsToUse'.
 
 STRICT CONSTRAINTS:
 1. ONLY use components from this whitelist: ${COMPONENT_WHITELIST.join(', ')}.
-2. Use standard lowercase HTML elements (div, section, header, nav, footer, p, h1-h6, etc.).
-3. DO NOT capitalize standard HTML tags (e.g., use <section>, NOT <Section>).
-4. ABSOLUTELY NO DOM interface names as component tags (e.g., NO <HTMLInputElement />).
-5. Import components from '../components/[ComponentName]' ONLY.
-6. Use Tailwind CSS for ALL styling.
-7. ABSOLUTELY NO inline styles (no 'style={{...}}').
-8. NO external imports other than 'react' and authorized components.
-9. Return ONLY the code. No markdown fences, no explanations.
+2. Use standard lowercase HTML elements for structure (div, section, main, etc).
+3. Import components from '../components/[ComponentName]' ONLY.
+4. Use Tailwind CSS for ALL styling.
+5. Return ONLY the code. No markdown fences, no explanations.
+6. Export the main component as 'default function App()'.
 
 WHITELISTED COMPONENTS:
 ${COMPONENT_WHITELIST.map(c => `- ${c}`).join('\n')}
-
-Example Import:
-import { Button } from '../components/Button';
 `;
 
   const userPrompt = `
@@ -48,7 +47,7 @@ User Intent: "${prompt}"
 Design Plan: 
 ${plan}
 
-Generate the React component code.
+Generate the React component code for 'App'.
 `;
 
   try {

@@ -2527,3 +2527,41 @@ html {
   border-color: #1f2937;
   color: #f3f4f6;
 }
+
+/* Custom Scrollbar Utilities */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #9ca3af;
+  /* neutral-400 - darker for better visibility */
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+  /* neutral-600 */
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f9fafb;
+  /* light-gray track to make thumb pop */
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-track {
+  background: #111318;
+}
+
+.scrollbar-thin:hover::-webkit-scrollbar-thumb {
+  background-color: #6b7280;
+  /* neutral-500 */
+}
+
+.dark .scrollbar-thin:hover::-webkit-scrollbar-thumb {
+  background-color: #9ca3af;
+  /* neutral-400 */
+}

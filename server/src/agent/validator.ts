@@ -19,15 +19,15 @@ const ALLOWED_IMPORTS = [
     '../layout-primitives/Stack',
     '../layout-primitives/Inline',
     '../layout-primitives/Box',
-    '../../components/Button',
-    '../../components/Card',
-    '../../components/Input',
-    '../../components/Textarea',
-    '../../components/Table',
-    '../../components/Modal',
-    '../../components/Sidebar',
-    '../../components/Navbar',
-    '../../components/Chart'
+    '../components/Button',
+    '../components/Card',
+    '../components/Input',
+    '../components/Textarea',
+    '../components/Table',
+    '../components/Modal',
+    '../components/Sidebar',
+    '../components/Navbar',
+    '../components/Chart'
 ];
 
 export async function runValidator(code: string): Promise<{ valid: boolean; errors: string[] }> {
