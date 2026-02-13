@@ -59,15 +59,21 @@ export async function runPlanner(userIntent: string, previousPlan?: any): Promis
 You are an expert Frontend Architect. Your job is to create a high-level plan for building a UI based on the user's intent.
 Your output MUST be a strict JSON object. No markdown, no prose, no React code, and no JSX.
 
+INCREMENTAL UPDATES:
+- If a "Previous Plan" is provided, do NOT recreate the entire layout from scratch.
+- PRESERVE existing components that are still relevant.
+- Only APPLY modifications, adds, or removals requested in the current "User Intent".
+- The final JSON should be a MERGED representation of the entire UI, including old and new parts.
+
 RULES:
 1. Components MUST ONLY be selected from this whitelist: ${COMPONENT_WHITELIST.join(', ')}.
 2. Output MUST follow this JSON structure:
 {
-  "intent": "Brief description of user goal",
+  "intent": "Brief description of the CUMULATIVE user goal",
   "steps": ["Step 1", "Step 2", ...],
   "componentsToUse": ["Component1", "Component2", ...],
   "layoutStrategy": "Description of container/grid layout",
-  "explanation": "Why this approach was chosen"
+  "explanation": "Briefly explain the incremental changes made"
 }
 3. Do NOT output any XML-like tags, <> or </>.
 4. If the user request is unclear, create a plan for a generic dashboard card.
@@ -77,10 +83,9 @@ ${COMPONENT_WHITELIST.map(c => `- ${c}`).join('\n')}
 `;
 
     const userPrompt = `
-User Intent: "${userIntent}"
-${stringifiedPreviousPlan ? `Previous Plan context:\n${stringifiedPreviousPlan}` : ""}
+${stringifiedPreviousPlan ? `### PREVIOUS STATE:\n${stringifiedPreviousPlan}\n\n### USER MODIFICATION REQUEST:\n"${userIntent}"` : `### NEW PROJECT REQUEST:\n"${userIntent}"`}
 
-Generate a strict JSON UI plan.
+Generate the updated CUMULATIVE JSON UI plan.
 `;
 
     try {
