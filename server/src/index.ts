@@ -5,6 +5,7 @@ import { runGenerator } from './agent/generator';
 import { runExplainer } from './agent/explainer';
 import { runValidator } from './agent/validator';
 import * as versionStore from './agent/versionStore';
+import { sanitizePrompt } from './utils/sanitizer';
 
 const app = express();
 const PORT = 5001;
@@ -63,9 +64,12 @@ app.get('/api/project/meta', (req: Request, res: Response) => {
 
 app.post('/api/agent/generate', async (req: Request, res: Response) => {
     try {
-        const { prompt, previousPlan } = req.body;
+        const { prompt: rawPrompt, previousPlan } = req.body;
 
-        // 1. Add user message to history
+        // 1. Sanitize prompt
+        const prompt = sanitizePrompt(rawPrompt);
+
+        // 2. Add user message to history
         const newMessage = {
             id: chatMessages.length + 1,
             role: 'user',
@@ -74,18 +78,18 @@ app.post('/api/agent/generate', async (req: Request, res: Response) => {
         };
         chatMessages.push(newMessage as any);
 
-        // 2. Run Pipeline (Asynchronous)
+        // 3. Run Pipeline (Asynchronous)
         const plan = await runPlanner(prompt, previousPlan);
         const code = await runGenerator(prompt, plan);
         const explanation = await runExplainer(prompt, plan, previousPlan);
         const validation = await runValidator(code);
 
-
         if (!validation.valid) {
-            console.warn("Generated code failed mock validation:", validation.errors);
+            console.error("Security/Validation Failure:", validation.errors);
+            throw new Error(`Security Violation: ${validation.errors.join(". ")}`);
         }
 
-        // 3. Update Global State
+        // 4. Update Global State
         currentCode = code;
 
         const parsedPlan = JSON.parse(plan);
