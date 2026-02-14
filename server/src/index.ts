@@ -30,7 +30,7 @@ export default function App() {
 }`;
 
 const projectMeta = {
-    name: "Professional AI Interface Design",
+    name: "RyzenAI",
     branch: "main",
     status: "active"
 };

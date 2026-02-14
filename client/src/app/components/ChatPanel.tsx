@@ -60,7 +60,7 @@ export function ChatPanel({ agent }: ChatPanelProps) {
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-950/30 dark:to-indigo-950/30 border border-violet-200 dark:border-violet-800/50 rounded-lg transition-all duration-300">
             <Sparkles size={12} className="text-violet-600 dark:text-violet-400" />
             <span className="text-xs font-medium text-violet-700 dark:text-violet-300 transition-colors duration-300">
-              Claude 3.5
+              Groq 4.1
             </span>
           </div>
         </div>
