@@ -14,6 +14,7 @@ import {
 
 function AppContent() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [activeMode, setActiveMode] = useState<Mode>('builder');
   const agent = useAgent();
 
   useEffect(() => {
@@ -34,31 +35,39 @@ function AppContent() {
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         onRun={agent.refresh}
         meta={agent.meta}
+        activeMode={activeMode}
+        onModeChange={setActiveMode}
       />
 
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <ResizablePanelGroup orientation="horizontal" key="ryze-layout-final-v1">
+        <ResizablePanelGroup orientation="horizontal" key={`ryze-layout-${activeMode}`}>
           {/* Left Panel - Chat */}
-          <ResizablePanel defaultSize={22} minSize={15}>
-            <div className="h-full border-r border-[#E5E7EB] dark:border-[#1F2937] transition-colors duration-300 flex flex-col min-w-0 overflow-hidden">
-              <ChatPanel agent={agent} />
-            </div>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
+          {activeMode === 'builder' && (
+            <>
+              <ResizablePanel defaultSize={22} minSize={15} id="chat-panel" order={1}>
+                <div className="h-full border-r border-[#E5E7EB] dark:border-[#1F2937] transition-colors duration-300 flex flex-col min-w-0 overflow-hidden">
+                  <ChatPanel agent={agent} />
+                </div>
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+            </>
+          )}
 
           {/* Center Panel - Editor */}
-          <ResizablePanel defaultSize={48} minSize={30}>
-            <div className="h-full border-r-2 border-[#E5E7EB] dark:border-[#1F2937] transition-colors duration-300 relative flex flex-col min-w-0 overflow-hidden">
-              <div className="absolute -right-px top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-violet-500/30 to-transparent pointer-events-none" />
-              <CodeEditor agent={agent} />
-            </div>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
+          {activeMode !== 'inspect' && (
+            <>
+              <ResizablePanel defaultSize={activeMode === 'code' ? 60 : 48} minSize={30} id="editor-panel" order={2}>
+                <div className="h-full border-r-2 border-[#E5E7EB] dark:border-[#1F2937] transition-colors duration-300 relative flex flex-col min-w-0 overflow-hidden">
+                  <div className="absolute -right-px top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-violet-500/30 to-transparent pointer-events-none" />
+                  <CodeEditor agent={agent} />
+                </div>
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+            </>
+          )}
 
           {/* Right Panel - Preview */}
-          <ResizablePanel defaultSize={30} minSize={20}>
+          <ResizablePanel defaultSize={activeMode === 'inspect' ? 100 : (activeMode === 'code' ? 40 : 30)} minSize={20} id="preview-panel" order={3}>
             <div className="h-full flex flex-col min-w-0 overflow-hidden">
               <PreviewPanel agent={agent} />
             </div>

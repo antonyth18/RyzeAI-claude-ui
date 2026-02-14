@@ -3,18 +3,19 @@ import { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import type { ProjectMeta } from '../../services/agentService';
 
-type Mode = 'builder' | 'code' | 'inspect';
+export type Mode = 'builder' | 'code' | 'inspect';
 
 interface AppHeaderProps {
   onOpenCommandPalette: () => void;
   onRun: () => void;
   meta: ProjectMeta | null;
+  activeMode: Mode;
+  onModeChange: (mode: Mode) => void;
 }
 
-export function AppHeader({ onOpenCommandPalette, onRun, meta }: AppHeaderProps) {
+export function AppHeader({ onOpenCommandPalette, onRun, meta, activeMode, onModeChange }: AppHeaderProps) {
 
   const { theme, toggleTheme } = useTheme();
-  const [activeMode, setActiveMode] = useState<Mode>('builder');
 
   return (
     <div className="h-14 border-b border-[#E5E7EB]/60 dark:border-[#1F2937]/60 bg-white/95 dark:bg-[#111318]/95 backdrop-blur-lg flex items-center justify-between px-6 transition-all duration-300 relative z-10">
@@ -51,7 +52,7 @@ export function AppHeader({ onOpenCommandPalette, onRun, meta }: AppHeaderProps)
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
         <div className="flex items-center gap-1 p-1 bg-[#F6F7F9] dark:bg-[#0d1015] border border-[#E5E7EB] dark:border-[#2a3441] rounded-xl shadow-sm transition-all duration-300">
           <button
-            onClick={() => setActiveMode('builder')}
+            onClick={() => onModeChange('builder')}
             className={`relative px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeMode === 'builder'
               ? 'text-neutral-900 dark:text-neutral-100 shadow-sm'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
@@ -67,7 +68,7 @@ export function AppHeader({ onOpenCommandPalette, onRun, meta }: AppHeaderProps)
           </button>
 
           <button
-            onClick={() => setActiveMode('code')}
+            onClick={() => onModeChange('code')}
             className={`relative px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeMode === 'code'
               ? 'text-neutral-900 dark:text-neutral-100 shadow-sm'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
@@ -83,7 +84,7 @@ export function AppHeader({ onOpenCommandPalette, onRun, meta }: AppHeaderProps)
           </button>
 
           <button
-            onClick={() => setActiveMode('inspect')}
+            onClick={() => onModeChange('inspect')}
             className={`relative px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeMode === 'inspect'
               ? 'text-neutral-900 dark:text-neutral-100 shadow-sm'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'

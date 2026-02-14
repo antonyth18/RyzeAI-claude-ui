@@ -1,8 +1,11 @@
+import { UITree } from './uiTree';
+
 export interface Version {
     id: string;
     prompt: string;
     plan: any;
     code: string;
+    tree: UITree | null; // Nullable for backwards compatibility with old versions
     explanation: string;
     timestamp: string;
 }
@@ -10,13 +13,14 @@ export interface Version {
 let versions: Version[] = [];
 let currentVersionId: string | null = null;
 
-export const addVersion = (prompt: string, plan: any, code: string, explanation: string): Version => {
+export const addVersion = (prompt: string, plan: any, code: string, tree: UITree, explanation: string): Version => {
     const id = `${Date.now()}-${versions.length}`;
     const newVersion: Version = {
         id,
         prompt,
         plan,
         code,
+        tree,
         explanation,
         timestamp: new Date().toISOString()
     };

@@ -96,13 +96,36 @@ app.post('/api/agent/generate', async (req: Request, res: Response) => {
             throw new Error(`Security Violation: ${validation.errors.join(". ")}`);
         }
 
+        // 3.1 UI Tree Pipeline
+        // Parse the generated code into the canonical UI Tree
+        const { parseJsxToTree, reconstructFullCode } = require('./agent/uiTree'); // Lazy load
+        let uiTree;
+        let finalCode = code;
+
+        try {
+            uiTree = parseJsxToTree(code);
+            console.log("[BACKEND] Parsed JSX to UITree successfully.");
+
+            // Re-serialize immediately to ensure canonical source of truth matches output
+            // This ensures what we confirm to the user IS the tree's representation
+            finalCode = reconstructFullCode(uiTree);
+            console.log("[BACKEND] Reconstructed code from UITree.");
+        } catch (treeError: any) {
+            console.error("[BACKEND] Tree Parsing Failed:", treeError.message);
+            console.warn("[BACKEND] Falling back to raw generated code (Tree feature degradation).");
+            // We proceed with raw code if parsing fails to avoid blocking the user
+            // But ideally this should not happen if generator follows constraints
+            uiTree = null;
+        }
+
         // 4. Update Global State
-        currentCode = code;
+        // @ts-ignore
+        currentCode = finalCode;
         console.log(`[BACKEND] Code updated successfully for prompt: "${prompt.substring(0, 30)}..."`);
         console.log(`[BACKEND] Current Code Length: ${currentCode.length}`);
 
         // Save to version store
-        versionStore.addVersion(prompt, parsedPlan, code, explanation);
+        versionStore.addVersion(prompt, parsedPlan, finalCode, uiTree!, explanation);
         console.log(`[BACKEND] Version saved. Total versions: ${versionStore.getAllVersions().length}`);
 
         const planSummary = `
