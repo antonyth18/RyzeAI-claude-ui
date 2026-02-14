@@ -1,5 +1,5 @@
 # ⚡ RyzenAI – Deterministic AI UI Generator  
-**Demo Link** https://ryzeai-claude-ui-1.onrender.com/
+**Demo Link** [https://ryzeai-claude-ui-1.onrender.com/]
 
 AI Agent → Structured Plan → Deterministic React UI → Live Preview  
 
@@ -381,6 +381,7 @@ Iterative reasoning
 
 The goal is not just to generate UI —
 but to build a trustworthy AI UI system.
+
 
 
 
