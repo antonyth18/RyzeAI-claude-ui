@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { runPlanner } from './agent/planner';
 import { runGenerator } from './agent/generator';
 import { runExplainer } from './agent/explainer';
@@ -14,7 +15,15 @@ const PORT = 5001;
 app.use(cors());
 app.use(express.json());
 
-// Mock Data Storage (In-memory)
+// Persistent Data Storage
+const DB_DIR = path.join(__dirname, '../db');
+const DB_PATH = path.join(DB_DIR, 'state.json');
+
+// Ensure DB directory exists
+if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+}
+
 let chatMessages = [
     { id: 1, role: 'assistant', content: 'Hello! I\'m your AI builder. How can I help you today?', timestamp: new Date().toLocaleTimeString() }
 ];
@@ -41,6 +50,40 @@ const fileList = [
     { name: "components/Hero.tsx", type: "file" },
     { name: "design-system/tokens.css", type: "file" }
 ];
+
+const saveState = () => {
+    try {
+        const state = {
+            chatMessages,
+            currentCode
+        };
+        fs.writeFileSync(DB_PATH, JSON.stringify(state, null, 2));
+    } catch (error) {
+        console.error("Failed to save state:", error);
+    }
+};
+
+const loadState = () => {
+    try {
+        if (fs.existsSync(DB_PATH)) {
+            const data = fs.readFileSync(DB_PATH, 'utf-8');
+            const state = JSON.parse(data);
+            if (state.chatMessages) chatMessages = state.chatMessages;
+            if (state.currentCode) currentCode = state.currentCode;
+            console.log("[BACKEND] State loaded from disk.");
+        }
+    } catch (error) {
+        console.error("Failed to load state:", error);
+    }
+};
+
+// Load state on startup
+loadState();
+
+// If file didn't exist, we should save the default state
+if (!fs.existsSync(DB_PATH)) {
+    saveState();
+}
 
 // Endpoints
 app.get('/health', (req: Request, res: Response) => {
@@ -78,6 +121,8 @@ app.post('/api/agent/generate', async (req: Request, res: Response) => {
             timestamp: new Date().toLocaleTimeString()
         };
         chatMessages.push(newMessage as any);
+
+        saveState(); // Save state after adding user message
 
         // 3. Run Pipeline (Asynchronous)
         const plan = await runPlanner(prompt, previousPlan);
@@ -150,6 +195,8 @@ ${explanation}
         };
         chatMessages.push(aiMessage as any);
 
+        saveState(); // Save state after adding AI message and updating code
+
         // 4. Return combined result as requested
         res.json({
             plan: parsedPlan,
@@ -185,6 +232,7 @@ app.post('/api/version/rollback', (req: Request, res: Response) => {
     }
 
     currentCode = version.code;
+    saveState(); // Save state after rollback
     res.json({
         status: "rolled_back",
         version
