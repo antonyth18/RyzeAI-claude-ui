@@ -1,5 +1,5 @@
 import { Sun, Moon, Command, Play, Check, ChevronDown, GitBranch } from 'lucide-react';
-import { useState } from 'react';
+
 import { useTheme } from '../contexts/ThemeContext';
 import type { ProjectMeta } from '../../services/agentService';
 

@@ -147,7 +147,7 @@ function ReasoningModal({ explanation, isOpen, onClose }: ReasoningModalProps) {
 }
 
 export function CodeEditor({ agent }: CodeEditorProps) {
-  const [activeTab, setActiveTab] = useState<'app' | 'hero'>('app');
+
   const [showVersionDropdown, setShowVersionDropdown] = useState(false);
   const [showReasoning, setShowReasoning] = useState(false);
   const [copied, setCopied] = useState(false);

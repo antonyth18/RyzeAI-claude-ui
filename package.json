@@ -1,0 +1,12 @@
+{
+    "name": "ryzen-ai-claude-ui",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "build": "cd client && npm run build && cd ../server && npm run build",
+        "start": "cd server && NODE_ENV=production npm start"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
+}
