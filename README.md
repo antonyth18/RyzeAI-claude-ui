@@ -82,6 +82,7 @@ Example Output Structure:
   "components": [...],
   "hierarchy": [...]
 }
+```
 Planner never outputs JSX.
 It produces only structured plans.
 
@@ -380,3 +381,4 @@ Iterative reasoning
 
 The goal is not just to generate UI —
 but to build a trustworthy AI UI system.
+
