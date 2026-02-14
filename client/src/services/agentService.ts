@@ -45,7 +45,7 @@ export const agentService = {
         return response.data;
     },
 
-    generateCode: async (prompt: string, previousPlan?: any): Promise<{ plan: any; code: string; explanation: string }> => {
+    generateCode: async (prompt: string, previousPlan?: any): Promise<{ plan: any; code: string; explanation: string; version: any }> => {
         const response = await axios.post(`${API_BASE_URL}/agent/generate`, { prompt, previousPlan });
         return response.data;
     },

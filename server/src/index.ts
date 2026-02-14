@@ -171,7 +171,7 @@ app.post('/api/agent/generate', async (req: Request, res: Response) => {
         console.log(`[BACKEND] Current Code Length: ${currentCode.length}`);
 
         // Save to version store
-        versionStore.addVersion(prompt, parsedPlan, finalCode, uiTree!, explanation);
+        const newVersion = versionStore.addVersion(prompt, parsedPlan, finalCode, uiTree!, explanation);
         console.log(`[BACKEND] Version saved. Total versions: ${versionStore.getAllVersions().length}`);
 
         const planSummary = `
@@ -201,7 +201,8 @@ ${explanation}
         res.json({
             plan: parsedPlan,
             code,
-            explanation
+            explanation,
+            version: newVersion
         });
 
     } catch (error: any) {

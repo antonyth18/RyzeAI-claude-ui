@@ -175,9 +175,9 @@ export function useAgent() {
             const result = await agentService.generateCode(prompt, activeFile.plan);
 
             const newVersion = {
-                id: Date.now().toString(),
+                id: result.version ? result.version.id : Date.now().toString(),
                 prompt,
-                timestamp: new Date().toISOString(),
+                timestamp: result.version ? result.version.timestamp : new Date().toISOString(),
                 codeSnapshot: result.code,
                 plan: result.plan,
                 explanation: result.explanation
