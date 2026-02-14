@@ -86,7 +86,7 @@ Example Output Structure:
 Planner never outputs JSX.
 It produces only structured plans.
 
-2️⃣ Generator
+### 2️⃣ Generator
 Purpose: Convert structured plan → deterministic React JSX.
 
 Constraints enforced:
@@ -113,7 +113,7 @@ The UITree becomes the single source of truth
 
 This guarantees structural consistency across iterations.
 
-3️⃣ Explainer
+### 3️⃣ Explainer
 Produces plain-English reasoning for:
 
 Layout decisions
@@ -126,7 +126,7 @@ Structural changes
 
 Ensures AI decisions are transparent and understandable.
 
-🌳 UITree – Canonical UI State
+## 🌳 UITree – Canonical UI State
 The UITree is the core architectural innovation.
 
 It includes:
@@ -152,7 +152,7 @@ Prevents formatting drift across edits
 The UI state is never just a string —
 it is a structured tree model.
 
-🧱 Component System Design
+## 🧱 Component System Design
 RyzenAI enforces strict deterministic rendering.
 
 Fixed Component Library
@@ -196,7 +196,7 @@ Use inline styles
 
 Use external UI libraries
 
-🎨 Deterministic Styling
+## 🎨 Deterministic Styling
 Styling is enforced via:
 
 Controlled props (variant, size, etc.)
@@ -209,10 +209,10 @@ Strict import whitelist
 
 Visual consistency is mandatory and guaranteed.
 
-🛡 Security & Validation
+## 🛡 Security & Validation
 RyzenAI uses a defense-in-depth model.
 
-1️⃣ Prompt Sanitization
+### 1️⃣ Prompt Sanitization
 All user input passes through sanitizePrompt to remove:
 
 “Ignore previous instructions”
@@ -221,7 +221,7 @@ System override attempts
 
 Prompt injection patterns
 
-2️⃣ Plan Validation
+### 2️⃣ Plan Validation
 Planner output validated using Zod to ensure:
 
 Structural integrity
@@ -230,7 +230,7 @@ No JSX injection in text fields
 
 Schema compliance
 
-3️⃣ Code Validation
+### 3️⃣ Code Validation
 Regex-based validation enforces:
 
 Import whitelist (react, lucide-react, internal only)
@@ -243,7 +243,7 @@ No forbidden patterns
 
 Invalid outputs are rejected before rendering.
 
-4️⃣ Preview Isolation
+### 4️⃣ Preview Isolation
 Sandboxed iframe
 
 Controlled execution environment
@@ -253,7 +253,7 @@ Runtime error boundary
 No access to external libraries
 
 💻 Technology Stack
-🎨 Frontend
+## 🎨 Frontend
 React 18 + TypeScript
 
 Vite
@@ -264,21 +264,21 @@ Lucide React
 
 Custom useAgent hook
 
-🖥️ Backend
+## 🖥️ Backend
 Node.js
 
 Express
 
 Groq SDK
 
-📦 State & Execution
+## 📦 State & Execution
 Local React state
 
 In-memory version store
 
 Canonical UITree model
 
-🔁 Iteration Model
+### 🔁 Iteration Model
 Incremental edits follow this pipeline:
 
 Planner merges new intent into existing plan
@@ -318,7 +318,7 @@ Limited Component Library
 Designed for deterministic enforcement rather than full UI coverage.
 
 🚀 What I Would Improve With More Time
-1️⃣ Subtree-Level Editing
+### 1️⃣ Subtree-Level Editing
 Implement AST-based patching to:
 
 Detect minimal subtree changes
@@ -327,10 +327,10 @@ Preserve untouched JSX nodes
 
 Improve diff granularity
 
-2️⃣ Structural Diff View
+### 2️⃣ Structural Diff View
 Add tree-level diff visualization between versions.
 
-3️⃣ Stronger Static Analysis
+### 3️⃣ Stronger Static Analysis
 Replace regex validation with:
 
 AST parsing
@@ -339,7 +339,7 @@ Formal schema validation
 
 Prop-level enforcement
 
-4️⃣ Persistent Storage
+### 4️⃣ Persistent Storage
 Add lightweight DB (e.g., SQLite) to persist:
 
 UITrees
@@ -348,7 +348,7 @@ Version history
 
 File states
 
-5️⃣ Replayable Generations
+### 5️⃣ Replayable Generations
 Store full generation chain:
 
 User prompt
@@ -361,7 +361,7 @@ UITree snapshot
 
 Enable reproducible AI runs.
 
-🧠 Design Philosophy
+## 🧠 Design Philosophy
 RyzenAI is built around one principle:
 
 AI UI generation should be deterministic, explainable, and structurally controlled.
@@ -381,4 +381,5 @@ Iterative reasoning
 
 The goal is not just to generate UI —
 but to build a trustworthy AI UI system.
+
 
