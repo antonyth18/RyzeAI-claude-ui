@@ -8,5 +8,14 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true
-  }
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test-ui-tree.ts",
+    "src/**/__tests__/**/*"
+  ]
 }

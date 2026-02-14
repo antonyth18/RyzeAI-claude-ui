@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import path from 'path';
 import { runPlanner } from './agent/planner';
 import { runGenerator } from './agent/generator';
 import { runExplainer } from './agent/explainer';
@@ -193,6 +194,16 @@ app.post('/api/version/rollback', (req: Request, res: Response) => {
 app.get('/api/versions', (req: Request, res: Response) => {
     res.json(versionStore.getAllVersions());
 });
+
+// Serve static frontend in production
+const CLIENT_BUILD_PATH = path.join(__dirname, '../../client/dist');
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(CLIENT_BUILD_PATH));
+
+    app.get(/.*/, (req: Request, res: Response) => {
+        res.sendFile(path.join(CLIENT_BUILD_PATH, 'index.html'));
+    });
+}
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
