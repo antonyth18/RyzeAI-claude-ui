@@ -317,7 +317,7 @@ No authentication or multi-user isolation.
 Limited Component Library
 Designed for deterministic enforcement rather than full UI coverage.
 
-🚀 What I Would Improve With More Time
+## 🚀 What I Would Improve With More Time
 ### 1️⃣ Subtree-Level Editing
 Implement AST-based patching to:
 
@@ -381,6 +381,7 @@ Iterative reasoning
 
 The goal is not just to generate UI —
 but to build a trustworthy AI UI system.
+
 
 
 
