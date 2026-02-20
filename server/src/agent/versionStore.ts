@@ -20,12 +20,13 @@ if (!fs.existsSync(DB_DIR)) {
     fs.mkdirSync(DB_DIR, { recursive: true });
 }
 
-let versions: Version[] = [];
-let currentVersionId: string | null = null;
+// Map of fileName -> Version[]
+let fileVersions: Record<string, Version[]> = {};
+let currentVersionIds: Record<string, string | null> = {};
 
 const saveVersions = () => {
     try {
-        fs.writeFileSync(DB_PATH, JSON.stringify(versions, null, 2));
+        fs.writeFileSync(DB_PATH, JSON.stringify(fileVersions, null, 2));
     } catch (error) {
         console.error("Failed to save versions:", error);
     }
@@ -35,14 +36,19 @@ const loadVersions = () => {
     try {
         if (fs.existsSync(DB_PATH)) {
             const data = fs.readFileSync(DB_PATH, 'utf-8');
-            versions = JSON.parse(data);
-            if (versions.length > 0) {
-                currentVersionId = versions[versions.length - 1].id;
+            fileVersions = JSON.parse(data);
+
+            // Re-initialize currentVersionIds from loaded history
+            for (const fileName in fileVersions) {
+                const versions = fileVersions[fileName];
+                if (versions && versions.length > 0) {
+                    currentVersionIds[fileName] = versions[versions.length - 1].id;
+                }
             }
         }
     } catch (error) {
         console.error("Failed to load versions:", error);
-        versions = [];
+        fileVersions = {};
     }
 };
 
@@ -54,8 +60,12 @@ if (!fs.existsSync(DB_PATH)) {
     saveVersions();
 }
 
-export const addVersion = (prompt: string, plan: any, code: string, tree: UITree, explanation: string): Version => {
-    const id = `${Date.now()}-${versions.length}`;
+export const addVersion = (fileName: string, prompt: string, plan: any, code: string, tree: UITree | null, explanation: string): Version => {
+    if (!fileVersions[fileName]) {
+        fileVersions[fileName] = [];
+    }
+
+    const id = `${Date.now()}-${fileVersions[fileName].length}`;
     const newVersion: Version = {
         id,
         prompt,
@@ -65,34 +75,40 @@ export const addVersion = (prompt: string, plan: any, code: string, tree: UITree
         explanation,
         timestamp: new Date().toISOString()
     };
-    versions.push(newVersion);
-    currentVersionId = id;
+
+    fileVersions[fileName].push(newVersion);
+    currentVersionIds[fileName] = id;
     saveVersions();
     return newVersion;
 };
 
-export const getCurrent = (): Version | null => {
-    if (!currentVersionId) return null;
-    return versions.find(v => v.id === currentVersionId) || null;
+export const getCurrent = (fileName: string): Version | null => {
+    const currentId = currentVersionIds[fileName];
+    if (!currentId) return null;
+    return fileVersions[fileName]?.find(v => v.id === currentId) || null;
 };
 
-export const rollback = (id: string): Version | null => {
-    const version = versions.find(v => v.id === id);
+export const rollback = (fileName: string, id: string): Version | null => {
+    const version = fileVersions[fileName]?.find(v => v.id === id);
     if (version) {
-        currentVersionId = id;
-        // In a real implementation, we might want to "branch" here or just set current
-        // For now, setting current is enough for the simple Linear history
+        currentVersionIds[fileName] = id;
         return version;
     }
     return null;
 };
 
-export const getAllVersions = (): Version[] => {
-    return versions;
+export const getAllVersions = (fileName: string): Version[] => {
+    return fileVersions[fileName] || [];
 };
 
-export const clearVersions = () => {
-    versions = [];
-    currentVersionId = null;
+export const clearVersions = (fileName?: string) => {
+    if (fileName) {
+        delete fileVersions[fileName];
+        delete currentVersionIds[fileName];
+    } else {
+        fileVersions = {};
+        currentVersionIds = {};
+    }
     saveVersions();
 };
+

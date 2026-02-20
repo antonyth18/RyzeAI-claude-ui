@@ -34,6 +34,7 @@ function AppContent() {
       <AppHeader
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         onRun={agent.refresh}
+        onReset={agent.resetProject}
         meta={agent.meta}
         activeMode={activeMode}
         onModeChange={setActiveMode}

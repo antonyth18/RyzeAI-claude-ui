@@ -8,14 +8,21 @@ export type Mode = 'builder' | 'code' | 'inspect';
 interface AppHeaderProps {
   onOpenCommandPalette: () => void;
   onRun: () => void;
+  onReset: () => void;
   meta: ProjectMeta | null;
   activeMode: Mode;
   onModeChange: (mode: Mode) => void;
 }
 
-export function AppHeader({ onOpenCommandPalette, onRun, meta, activeMode, onModeChange }: AppHeaderProps) {
+export function AppHeader({ onOpenCommandPalette, onRun, onReset, meta, activeMode, onModeChange }: AppHeaderProps) {
 
   const { theme, toggleTheme } = useTheme();
+
+  const handleReset = () => {
+    if (window.confirm("Are you sure you want to reset the project? This will delete all files except App.tsx and clear all chat history.")) {
+      onReset();
+    }
+  };
 
   return (
     <div className="h-14 border-b border-[#E5E7EB]/60 dark:border-[#1F2937]/60 bg-white/95 dark:bg-[#111318]/95 backdrop-blur-lg flex items-center justify-between px-6 transition-all duration-300 relative z-10">
@@ -46,6 +53,17 @@ export function AppHeader({ onOpenCommandPalette, onRun, meta, activeMode, onMod
           </span>
         </div>
 
+        <div className="w-px h-6 bg-[#E5E7EB] dark:bg-[#2a3441] transition-colors duration-300" />
+
+        {/* Reset Button */}
+        <button
+          onClick={handleReset}
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-full transition-all duration-200 active:scale-95"
+          title="Reset Project State"
+        >
+          <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+          Reset Project
+        </button>
       </div>
 
       {/* Center Section - Segmented Control */}

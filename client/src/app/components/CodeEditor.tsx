@@ -344,13 +344,13 @@ export function CodeEditor({ agent }: CodeEditorProps) {
 
 
       {/* Editor & Explanation area */}
-      <div className="flex-1 flex flex-col min-h-0 relative">
+      <div className="flex-1 min-h-0 relative">
         <div
-          className="flex-1 overflow-auto scrollbar-thin relative"
+          className="absolute inset-0 overflow-y-auto overflow-x-auto scrollbar-thin custom-code-scroller"
           style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'Menlo', monospace" }}
         >
-          <div className="p-4 min-h-full">
-            <pre className="text-[14px] leading-[1.6] text-neutral-900 dark:text-neutral-100">
+          <div className="p-4">
+            <pre className="inline-block min-w-full text-[14px] leading-[1.6] text-neutral-900 dark:text-neutral-100">
               {agent.currentCode.split('\n').map((line: string, i: number) => {
                 const lineNumber = i + 1;
                 const tokens = tokenizeLine(line);

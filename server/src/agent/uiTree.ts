@@ -240,42 +240,56 @@ export function serializeTree(node: UITreeNode): string {
 }
 
 // Wrapper to attach imports/exports back
+import { COMPONENT_WHITELIST, LAYOUT_PRIMITIVES } from './constants';
+
 export function reconstructFullCode(tree: UITree): string {
     const serializedRoot = serializeTree(tree.root);
+
+    // 1. Get all used component names from the tree
+    const usedTags = new Set<string>();
+    const collectTags = (node: UITreeNode) => {
+        if (node.type && /^[A-Z]/.test(node.type)) {
+            usedTags.add(node.type);
+        }
+        node.children.forEach(child => {
+            if (typeof child !== 'string') collectTags(child);
+        });
+    };
+    collectTags(tree.root);
+
+    // Known lists for categorization
+    const primitives = new Set(LAYOUT_PRIMITIVES);
+    const commonIcons = new Set([
+        'BarChart', 'LineChart', 'PieChart', 'Activity', 'Users', 'Settings', 'Search', 'Bell',
+        'Menu', 'X', 'Check', 'ChevronRight', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'TrendingUp',
+        'TrendingDown', 'DollarSign', 'Briefcase', 'Target', 'Home', 'FileText', 'MessageSquare',
+        'Shield', 'CreditCard', 'Mail', 'Calendar', 'Clock', 'LayoutDashboard', 'Zap', 'Filter',
+        'Download', 'Share2', 'MoreVertical', 'Plus', 'Trash2'
+    ]);
+
+    const componentImports: string[] = [];
+    const primitiveImports: string[] = [];
+    const usedIcons: string[] = [];
+
+    usedTags.forEach(tag => {
+        if (primitives.has(tag)) {
+            primitiveImports.push(`import { ${tag} } from '../layout-primitives/${tag}';`);
+        } else if (commonIcons.has(tag)) {
+            usedIcons.push(tag);
+        } else {
+            // Assume it's a standard component
+            componentImports.push(`import { ${tag} } from '../components/${tag}';`);
+        }
+    });
+
+    const iconImport = usedIcons.length > 0
+        ? `import { ${usedIcons.join(', ')} } from 'lucide-react';`
+        : '';
+
     return `import React from 'react';
-import { Button } from '../components/Button';
-import { Card } from '../components/Card';
-import { Input } from '../components/Input';
-import { Textarea } from '../components/Textarea';
-import { Table } from '../components/Table';
-import { Modal } from '../components/Modal';
-import { Sidebar } from '../components/Sidebar';
-import { Navbar } from '../components/Navbar';
-import { Chart } from '../components/Chart';
-import { 
-  BarChart, 
-  LineChart, 
-  PieChart, 
-  Activity, 
-  Users, 
-  Settings, 
-  Search, 
-  Bell, 
-  Menu, 
-  X, 
-  Check, 
-  ChevronRight, 
-  ArrowRight,
-  Home,
-  FileText,
-  MessageSquare,
-  Shield,
-  CreditCard,
-  Mail,
-  Calendar,
-  Clock,
-  LayoutDashboard
-} from 'lucide-react';
+${componentImports.join('\n')}
+${primitiveImports.join('\n')}
+${iconImport}
 
 export default function App() {
   return (
@@ -283,3 +297,5 @@ export default function App() {
   );
 }`;
 }
+
+

@@ -30,21 +30,52 @@ export function useAgent() {
         return files.find(f => f.id === activeFileId) || null;
     }, [files, activeFileId]);
 
-    const createFile = useCallback((name?: string) => {
-        const id = Date.now().toString();
-        const newFile: AgentFile = {
-            id,
-            name: name || `File ${files.length + 1}`,
-            messages: [],
-            currentCode: `import React from 'react';\n\nexport default function App() {\n  return (\n    <div className="p-8">\n      <h1 className="text-4xl font-bold">New File</h1>\n      <p className="mt-4 text-gray-600">Start building your amazing component.</p>\n    </div>\n  );\n}`,
-            plan: null,
-            versions: [],
-            versionIndex: -1
-        };
-        setFiles(prev => [...prev, newFile]);
-        setActiveFileId(id);
-        return id;
-    }, [files.length]);
+    const createFile = useCallback(async (name?: string) => {
+        let fileName = name;
+        if (!fileName) {
+            const baseName = "NewComponent";
+            let counter = 0;
+            const existingNames = new Set(files.map(f => f.name));
+
+            fileName = `${baseName}.tsx`;
+            while (existingNames.has(fileName)) {
+                counter++;
+                fileName = `${baseName}_${counter}.tsx`;
+            }
+        }
+
+        try {
+            setIsLoading(true);
+            await agentService.createFile(fileName);
+
+            const newFile: AgentFile = {
+                id: fileName, // Use filename as ID for simplicity on backend
+                name: fileName,
+                messages: [{ id: Date.now(), role: 'assistant', content: `Created ${fileName}. How can I help?`, timestamp: new Date().toLocaleTimeString() }],
+                currentCode: `import React from 'react';
+
+export default function Component() {
+  return (
+    <div className="p-8">
+      <h1 className="text-4xl font-bold">${fileName}</h1>
+      <p className="mt-4 text-gray-600">Start building your amazing component.</p>
+    </div>
+  );
+}`,
+                plan: null,
+                versions: [],
+                versionIndex: -1
+            };
+            setFiles(prev => [...prev, newFile]);
+            setActiveFileId(fileName);
+            return fileName;
+        } catch (err) {
+            setError('Failed to create file on server');
+            return null;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [files]);
 
     const setActiveFile = useCallback((id: string) => {
         setActiveFileId(id);
@@ -63,27 +94,26 @@ export function useAgent() {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [history, code, fsFiles, projectMeta, versionHistory] = await Promise.all([
-                agentService.getChatHistory(),
-                agentService.getCurrentCode(),
-                agentService.getFiles(),
-                agentService.getProjectMeta(),
-                agentService.getVersions()
-            ]);
+            const fsFiles = await agentService.getFiles();
+            const projectMeta = await agentService.getProjectMeta();
 
             setProjectFiles(fsFiles);
             setMeta(projectMeta);
 
-            // Initialize the first file if nothing exists in local state
-            if (files.length === 0) {
-                const id = 'initial-file';
-                const initialFile: AgentFile = {
-                    id,
-                    name: 'App.tsx',
+            // Load state for each file from the backend
+            const fileStates = await Promise.all(fsFiles.map(async (file) => {
+                const [history, code, versions] = await Promise.all([
+                    agentService.getChatHistory(file.name),
+                    agentService.getCurrentCode(file.name),
+                    agentService.getVersions(file.name)
+                ]);
+                return {
+                    id: file.name,
+                    name: file.name,
                     messages: history,
                     currentCode: code.code,
-                    plan: null, // We'll infer this if needed
-                    versions: versionHistory.map((v: any) => ({
+                    plan: versions.length > 0 ? versions[versions.length - 1].plan : null,
+                    versions: versions.map((v: any) => ({
                         id: v.id,
                         prompt: v.prompt,
                         timestamp: v.timestamp,
@@ -91,10 +121,13 @@ export function useAgent() {
                         plan: v.plan,
                         explanation: v.explanation
                     })),
-                    versionIndex: versionHistory.length - 1
+                    versionIndex: versions.length - 1
                 };
-                setFiles([initialFile]);
-                setActiveFileId(id);
+            }));
+
+            if (fileStates.length > 0) {
+                setFiles(fileStates);
+                if (!activeFileId) setActiveFileId(fileStates[0].name);
             }
         } catch (err) {
             setError('Failed to fetch data from server');
@@ -102,17 +135,17 @@ export function useAgent() {
         } finally {
             setIsLoading(false);
         }
-    }, [files.length]);
+    }, [activeFileId]);
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, []); // Only fetch once on mount
 
     const rollbackVersion = useCallback(async (versionId: string, index: number) => {
         if (!activeFileId) return;
         setIsLoading(true);
         try {
-            await agentService.rollbackVersion(versionId);
+            await agentService.rollbackVersion(versionId, activeFileId);
             setFiles(prev => prev.map(f => {
                 if (f.id !== activeFileId) return f;
                 const version = f.versions[index];
@@ -172,7 +205,7 @@ export function useAgent() {
         addMessageToActiveFile(userMessage);
 
         try {
-            const result = await agentService.generateCode(prompt, activeFile.plan);
+            const result = await agentService.generateCode(prompt, activeFileId, activeFile.plan);
 
             const newVersion = {
                 id: result.version ? result.version.id : Date.now().toString(),
@@ -190,7 +223,7 @@ export function useAgent() {
                 const assistantMessage: Message = {
                     id: Date.now() + 1,
                     role: 'assistant',
-                    content: result.explanation, // Or a summary
+                    content: result.explanation,
                     timestamp: new Date().toLocaleTimeString()
                 };
 
@@ -216,6 +249,7 @@ export function useAgent() {
         }
     };
 
+
     const renameFile = useCallback((id: string, newName: string) => {
         setFiles(prev => prev.map(f => {
             if (f.id !== id) return f;
@@ -223,19 +257,40 @@ export function useAgent() {
         }));
     }, []);
 
-    const deleteFile = useCallback((id: string) => {
-        setFiles(prev => {
-            const newFiles = prev.filter(f => f.id !== id);
+    const deleteFile = useCallback(async (id: string) => {
+        setIsLoading(true);
+        try {
+            await agentService.deleteFile(id);
+            setFiles(prev => {
+                const newFiles = prev.filter(f => f.id !== id);
 
-            // If we deleted the active file, switch to the last available file or clear selection
-            if (id === activeFileId) {
-                const nextFile = newFiles.length > 0 ? newFiles[newFiles.length - 1] : null;
-                setActiveFileId(nextFile ? nextFile.id : null);
-            }
+                // If we deleted the active file, switch to the last available file or clear selection
+                if (id === activeFileId) {
+                    const nextFile = newFiles.length > 0 ? newFiles[newFiles.length - 1] : null;
+                    setActiveFileId(nextFile ? nextFile.id : null);
+                }
 
-            return newFiles;
-        });
+                return newFiles;
+            });
+        } catch (err) {
+            setError('Failed to delete file on server');
+        } finally {
+            setIsLoading(false);
+        }
     }, [activeFileId]);
+
+    const resetProject = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            await agentService.resetState();
+            await fetchData(); // Reload everything from server
+            setActiveFileId('App.tsx');
+        } catch (err) {
+            setError('Failed to reset project on server');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [fetchData]);
 
     return {
         messages: activeFile?.messages || [],
@@ -260,7 +315,8 @@ export function useAgent() {
         getActiveFile,
         addMessageToActiveFile,
         renameFile,
-        deleteFile
+        deleteFile,
+        resetProject
     };
 }
 

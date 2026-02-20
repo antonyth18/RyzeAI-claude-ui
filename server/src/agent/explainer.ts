@@ -1,4 +1,5 @@
 import Groq from "groq-sdk";
+import { withRetry } from '../utils/groqRetry';
 import * as dotenv from 'dotenv';
 import path from 'path';
 
@@ -47,13 +48,15 @@ Provide a clear explanation of the design approach.
 `;
 
     try {
-        const chatCompletion = await getGroq().chat.completions.create({
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt }
-            ],
-            model: "llama-3.3-70b-versatile",
-        });
+        const chatCompletion = await withRetry(async () => {
+            return await getGroq().chat.completions.create({
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt }
+                ],
+                model: "llama-3.3-70b-versatile",
+            });
+        }, 3, 3000);
 
         return chatCompletion.choices[0]?.message?.content?.trim() || "";
     } catch (error: any) {

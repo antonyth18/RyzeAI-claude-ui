@@ -1,4 +1,5 @@
 import Groq from "groq-sdk";
+import { withRetry } from '../utils/groqRetry';
 import { z } from 'zod';
 import * as dotenv from 'dotenv';
 import path from 'path';
@@ -21,30 +22,15 @@ function getGroq() {
     return groq;
 }
 
-// ... whitelist and schema remain same
-const COMPONENT_WHITELIST = [
-    'Button',
-    'Card',
-    'Input',
-    'Textarea',
-    'Table',
-    'Modal',
-    'Sidebar',
-    'Navbar',
-    'Chart'
-] as const;
-
-// Helper to check for JSX
-const noJsx = (val: string) => !/<[a-zA-Z]/.test(val) && !/\/>/.test(val);
-const noJsxMessage = "React/JSX code is strictly forbidden in the plan.";
+import { COMPONENT_WHITELIST } from './constants';
 
 // Zod schema for the plan
 const PlanSchema = z.object({
-    intent: z.string().refine(noJsx, noJsxMessage),
-    steps: z.array(z.string().refine(noJsx, noJsxMessage)),
-    componentsToUse: z.array(z.enum(COMPONENT_WHITELIST)),
-    layoutStrategy: z.string().refine(noJsx, noJsxMessage),
-    explanation: z.string().refine(noJsx, noJsxMessage)
+    intent: z.string(),
+    steps: z.array(z.string()),
+    componentsToUse: z.array(z.string()),
+    layoutStrategy: z.string(),
+    explanation: z.string()
 });
 
 export type Plan = z.infer<typeof PlanSchema>;
@@ -53,31 +39,35 @@ export async function runPlanner(userIntent: string, previousPlan?: any): Promis
     const stringifiedPreviousPlan = typeof previousPlan === 'object' ? JSON.stringify(previousPlan, null, 2) : previousPlan;
 
     const systemPrompt = `
-You are an expert Frontend Architect. Your job is to create a high-level plan for building a UI based on the user's intent.
-Your output MUST be a strict JSON object. No markdown, no prose, no React code, and no JSX.
+You are an expert Frontend Architect and UI Designer. Your job is to create a high-level plan for building a BEAUTIFUL, DETAILED, PREMIUM UI.
+
+HIGH-FIDELITY REQUIREMENT:
+- DO NOT plan for empty custom components (e.g., "HeroSection", "MetricCard").
+- Plan for a functional visual hierarchy. 
+- You can suggest using primitives like <Section>, <Grid>, <Stack>, and <Container>, but allow the generator to decide the final nesting for maximum visual quality.
+- Treat every "component" as a functional area you will implement in detail using React + Tailwind.
+
+VISUAL EXCELLENCE:
+- Prioritize modern, high-end aesthetics (Vibrant colors, sleek dark modes, glassmorphism, smooth gradients).
+- Design layouts that feel premium and state-of-the-art.
+- Use whitespace, typography, and color harmony to create a "WOW" factor.
 
 INCREMENTAL UPDATES:
-- If a "Previous Plan" is provided, do NOT recreate the entire layout from scratch.
-- PRESERVE existing components that are still relevant.
-- Only APPLY modifications, adds, or removals requested in the current "User Intent".
-- The final JSON should be a MERGED representation of the entire UI, including old and new parts.
+- If a "Previous Plan" is provided, build upon it to satisfy the "User Intent".
+- You can suggest full layout regenerations if needed to improve quality.
 
 RULES:
-1. Components MUST ONLY be selected from this whitelist: ${COMPONENT_WHITELIST.join(', ')}.
-2. Output MUST follow this JSON structure:
+1. Output MUST follow this JSON structure:
 {
-  "intent": "Brief description of the CUMULATIVE user goal",
+  "intent": "Brief description of the user goal",
   "steps": ["Step 1", "Step 2", ...],
-  "componentsToUse": ["Component1", "Component2", ...],
-  "layoutStrategy": "Description of container/grid layout",
-  "explanation": "Briefly explain the incremental changes made"
+  "componentsToUse": ["List of functional areas to build"],
+  "layoutStrategy": "Description of the visual approach and styling strategy",
+  "explanation": "Briefly explain the design choices"
 }
-3. Do NOT output any XML-like tags, <> or </>.
-4. If the user request is unclear, create a plan for a generic dashboard card.
-
-WHITELISTED COMPONENTS:
-${COMPONENT_WHITELIST.map(c => `- ${c}`).join('\n')}
+2. Output MUST be strict JSON.
 `;
+
 
     const userPrompt = `
 ${stringifiedPreviousPlan ? `### PREVIOUS STATE:\n${stringifiedPreviousPlan}\n\n### USER MODIFICATION REQUEST:\n"${userIntent}"` : `### NEW PROJECT REQUEST:\n"${userIntent}"`}
@@ -86,14 +76,16 @@ Generate the updated CUMULATIVE JSON UI plan.
 `;
 
     try {
-        const chatCompletion = await getGroq().chat.completions.create({
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt }
-            ],
-            model: "llama-3.3-70b-versatile",
-            response_format: { type: "json_object" }
-        });
+        const chatCompletion = await withRetry(async () => {
+            return await getGroq().chat.completions.create({
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt }
+                ],
+                model: "llama-3.3-70b-versatile",
+                response_format: { type: "json_object" }
+            });
+        }, 3, 3000);
 
         let rawContent = chatCompletion.choices[0]?.message?.content || "";
 

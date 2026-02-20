@@ -1,4 +1,5 @@
 import Groq from "groq-sdk";
+import { withRetry } from '../utils/groqRetry';
 import * as dotenv from 'dotenv';
 import path from 'path';
 
@@ -19,45 +20,59 @@ function getGroq() {
   return groq;
 }
 
-const COMPONENT_WHITELIST = ['Button', 'Card', 'Input', 'Textarea', 'Table', 'Modal', 'Sidebar', 'Navbar', 'Chart'];
+import { COMPONENT_WHITELIST, ALLOWED_IMPORTS, LAYOUT_PRIMITIVES } from './constants';
 
-export async function runGenerator(prompt: string, plan: string): Promise<string> {
+export async function runGenerator(prompt: string, plan: string, previousCode: string = ""): Promise<string> {
   const systemPrompt = `
-You are an expert React Developer. Your task is to generate the code for a single React component named 'App' based on a provided Design Plan.
+You are a senior frontend UI engineer and product designer.
+Generate modern, production-ready React + Tailwind UI.
 
-DESIGN PLAN FORMAT:
-- The plan contains a 'layoutStrategy' describing the structure and 'componentsToUse'.
-- You must implement the 'App' component according to these instructions.
-- You must use the components specified in 'componentsToUse'.
+Requirements:
+1. Strong visual hierarchy
+2. Proper spacing (p-6, gap-6, space-y-6)
+3. Rounded corners (rounded-xl or 2xl)
+4. Soft shadows (shadow-md, shadow-lg)
+5. Responsive layouts (flex, grid, max-w-*)
+6. Avoid placeholder UI. NO "CustomComponent" tags unless defined in file.
+7. Avoid flat gray blocks. Use gradients, glassmorphism, and depth.
+8. Buttons must look premium.
+9. Cards must have padding and depth.
 
 STRICT CONSTRAINTS:
-1. ONLY use components from this whitelist: ${COMPONENT_WHITELIST.join(', ')}.
-2. Use standard lowercase HTML elements for structure (div, section, main, etc).
-3. Import components from '../components/[ComponentName]' ONLY.
-4. Use Tailwind CSS for ALL styling.
-5. Return ONLY the code. No markdown fences, no explanations.
-6. Export the main component as 'default function App()'.
-
-WHITELISTED COMPONENTS:
-${COMPONENT_WHITELIST.map(c => `- ${c}`).join('\n')}
+- IMPORT RULES: 
+    - For components, use \`import { Name } from '../components/Name'\`
+    - For layout primitives, use \`import { Name } from '../layout-primitives/Name'\`
+    - For icons, use \`import { IconName } from 'lucide-react'\`
+- Use Tailwind CSS for ALL styling. Do NOT use inline styles.
+- Return ONLY the code. No markdown fences, no explanations.
+- NO DIFFS: Do NOT use '+' or '-' prefixes. Return full, clean code only.
+- STRICTLY ESM: Use \`import\` and \`export default\`. Do NOT use \`module.exports\` or \`require\`.
+- COMPONENT NAMING: Avoid naming components 'Text', 'Image', or 'Navigation' as they collide with browser globals. Use 'Typography', 'AppImage', or 'NavBar' instead.
+- Export the main component as 'default function App()'.
 `;
 
   const userPrompt = `
-User Intent: "${prompt}"
-Design Plan: 
+${previousCode ? `### PREVIOUS CODE:\n${previousCode}\n\n` : ""}
+### USER INTENT:
+"${prompt}"
+
+### DESIGN PLAN: 
 ${plan}
 
-Generate the React component code for 'App'.
+Generate the FULL updated React component code for 'App'. 
+${previousCode ? "Maintain the overall structure of the previous code but apply the requested updates and ensure the highest visual quality." : "Create a STUNNING first version of the App."}
 `;
 
   try {
-    const chatCompletion = await getGroq().chat.completions.create({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      model: "llama-3.3-70b-versatile",
-    });
+    const chatCompletion = await withRetry(async () => {
+      return await getGroq().chat.completions.create({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        model: "llama-3.3-70b-versatile",
+      });
+    }, 3, 3000);
 
     let code = chatCompletion.choices[0]?.message?.content || "";
 
@@ -66,8 +81,15 @@ Generate the React component code for 'App'.
       code = code.replace(/```[a-z]*\n?/g, '').replace(/\n?```/g, '').trim();
     }
 
-    // Log the generated code for debugging purposes
-    console.log("--- GENERATED CODE ---\n", code, "\n--- END GENERATED CODE ---");
+    // Strip common LLM "diff" artifacts if they accidentally leak through
+    code = code.split('\n').map(line => {
+      // Only strip if the line looks like a diff line and contains code-like structure
+      // We want to avoid stripping math operators or legit leading characters
+      if ((line.startsWith('+ ') || line.startsWith('- ')) && (line.includes('import ') || line.includes('<') || line.includes('{') || line.includes('function'))) {
+        return line.substring(2);
+      }
+      return line;
+    }).join('\n');
 
     // Validate the generated code
     validateGeneratedCode(code);
@@ -83,39 +105,21 @@ Generate the React component code for 'App'.
 }
 
 function validateGeneratedCode(code: string) {
-  // 1. Check for inline styles (e.g., style={{...}})
-  if (/style\s*=\s*{/.test(code)) {
-    throw new Error("Inline styles are strictly forbidden. Use Tailwind CSS classes instead.");
+  // 1. Block high-risk security items
+  if (code.includes('dangerouslySetInnerHTML')) {
+    throw new Error("Security Violation: dangerouslySetInnerHTML is forbidden.");
   }
 
-  // 2. Check for disallowed components
-  const componentUsage = code.match(/<([A-Z][a-zA-Z0-9]*)/g);
-  if (componentUsage) {
-    const usedComponents = [...new Set(componentUsage.map(c => c.slice(1)))];
-
-    // Whitelist and standard HTML tags that might be capitalized by LLMs
-    const allowedStandardTags = ['div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'section', 'nav', 'header', 'main', 'footer', 'ul', 'li', 'ol', 'label', 'form', 'a', 'img'];
-
-    const invalidComponents = usedComponents.filter(c => {
-      const lowerC = c.toLowerCase();
-      // If it's in our whitelist, it's fine
-      if (COMPONENT_WHITELIST.includes(c as any)) return false;
-      // If it's a standard HTML tag (even if capitalized), we'll allow it but prefer lowercase
-      if (allowedStandardTags.includes(lowerC)) return false;
-      // Otherwise, it's an unknown component
-      return true;
-    });
-
-    if (invalidComponents.length > 0) {
-      throw new Error(`Unknown or disallowed components detected: ${invalidComponents.join(', ')}`);
-    }
+  if (/<script/i.test(code)) {
+    throw new Error("Security Violation: <script> tags are forbidden.");
   }
 
-  // 3. Check for additional imports (only React and whitelisted components allowed)
-  const imports = code.match(/import\s+.*\s+from\s+['"].*['"]/g) || [];
-  for (const imp of imports) {
-    if (!imp.includes('react') && !imp.includes('../components/')) {
-      throw new Error(`External or disallowed imports detected: ${imp}`);
-    }
+  // Block inline JS event strings (on* attributes)
+  if (/\son[a-z]+\s*=\s*['"][^'"]*['"]/i.test(code)) {
+    throw new Error("Security Violation: Inline JavaScript event strings are forbidden.");
   }
+
+  // Note: Standard PascalCase components and imports are now allowed by default.
+  // We trust the LLM's creativity, only blocking actual injection risks.
 }
+

@@ -21,14 +21,20 @@ const DB_PATH = path.join(DB_DIR, 'state.json');
 
 // Ensure DB directory exists
 if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
+  fs.mkdirSync(DB_DIR, { recursive: true });
 }
 
-let chatMessages = [
-    { id: 1, role: 'assistant', content: 'Hello! I\'m your AI builder. How can I help you today?', timestamp: new Date().toLocaleTimeString() }
-];
+interface FileState {
+  chatMessages: any[];
+  currentCode: string;
+}
 
-let currentCode = `import React from 'react';
+let fileStates: Record<string, FileState> = {
+  'App.tsx': {
+    chatMessages: [
+      { id: 1, role: 'assistant', content: 'Hello! I\'m your AI builder. How can I help you today?', timestamp: new Date().toLocaleTimeString() }
+    ],
+    currentCode: `import React from 'react';
 
 export default function App() {
   return (
@@ -37,44 +43,44 @@ export default function App() {
       <p className="mt-4 text-gray-600">Start building your amazing project.</p>
     </div>
   );
-}`;
-
-const projectMeta = {
-    name: "RyzenAI",
-    branch: "main",
-    status: "active"
+}`
+  }
 };
 
-const fileList = [
-    { name: "App.tsx", type: "file" },
-    { name: "components/Hero.tsx", type: "file" },
-    { name: "design-system/tokens.css", type: "file" }
+let fileList = [
+  { name: "App.tsx", type: "file" }
 ];
 
+const projectMeta = {
+  name: "RyzenAI",
+  branch: "main",
+  status: "active"
+};
+
 const saveState = () => {
-    try {
-        const state = {
-            chatMessages,
-            currentCode
-        };
-        fs.writeFileSync(DB_PATH, JSON.stringify(state, null, 2));
-    } catch (error) {
-        console.error("Failed to save state:", error);
-    }
+  try {
+    const state = {
+      fileStates,
+      fileList
+    };
+    fs.writeFileSync(DB_PATH, JSON.stringify(state, null, 2));
+  } catch (error) {
+    console.error("Failed to save state:", error);
+  }
 };
 
 const loadState = () => {
-    try {
-        if (fs.existsSync(DB_PATH)) {
-            const data = fs.readFileSync(DB_PATH, 'utf-8');
-            const state = JSON.parse(data);
-            if (state.chatMessages) chatMessages = state.chatMessages;
-            if (state.currentCode) currentCode = state.currentCode;
-            console.log("[BACKEND] State loaded from disk.");
-        }
-    } catch (error) {
-        console.error("Failed to load state:", error);
+  try {
+    if (fs.existsSync(DB_PATH)) {
+      const data = fs.readFileSync(DB_PATH, 'utf-8');
+      const state = JSON.parse(data);
+      if (state.fileStates) fileStates = state.fileStates;
+      if (state.fileList) fileList = state.fileList;
+      console.log("[BACKEND] State loaded from disk.");
     }
+  } catch (error) {
+    console.error("Failed to load state:", error);
+  }
 };
 
 // Load state on startup
@@ -82,99 +88,142 @@ loadState();
 
 // If file didn't exist, we should save the default state
 if (!fs.existsSync(DB_PATH)) {
-    saveState();
+  saveState();
 }
 
 // Endpoints
 app.get('/health', (req: Request, res: Response) => {
-    res.json({ status: "ok" });
+  res.json({ status: "ok" });
 });
 
 app.get('/api/chat/history', (req: Request, res: Response) => {
-    res.json(chatMessages);
+  const fileName = (req.query.fileName as string) || 'App.tsx';
+  res.json(fileStates[fileName]?.chatMessages || []);
 });
 
 app.get('/api/code/current', (req: Request, res: Response) => {
-    res.json({ code: currentCode });
+  const fileName = (req.query.fileName as string) || 'App.tsx';
+  res.json({ code: fileStates[fileName]?.currentCode || "" });
 });
 
 app.get('/api/files', (req: Request, res: Response) => {
-    res.json(fileList);
+  res.json(fileList);
+});
+
+app.post('/api/files/create', (req: Request, res: Response) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: "File name required" });
+
+  if (fileStates[name]) return res.status(400).json({ error: "File already exists" });
+
+  fileStates[name] = {
+    chatMessages: [
+      { id: Date.now(), role: 'assistant', content: `Created ${name}. How can I help you build it?`, timestamp: new Date().toLocaleTimeString() }
+    ],
+    currentCode: `import React from 'react';\n\nexport default function Component() {\n  return (\n    <div className="p-8">\n      <h1 className="text-4xl font-bold">${name}</h1>\n      <p className="mt-4 text-gray-600">Start building your amazing component.</p>\n    </div>\n  );\n}`
+  };
+
+  fileList.push({ name, type: "file" });
+  saveState();
+  res.json({ status: "created", fileName: name });
 });
 
 app.get('/api/project/meta', (req: Request, res: Response) => {
-    res.json(projectMeta);
+  res.json(projectMeta);
+});
+
+app.delete('/api/files/:name', (req: Request, res: Response) => {
+  const name = req.params.name as string;
+  if (name === 'App.tsx') return res.status(400).json({ error: "Cannot delete the main App.tsx file" });
+
+  if (!fileStates[name]) return res.status(404).json({ error: "File not found" });
+
+  delete fileStates[name];
+  fileList = fileList.filter(f => f.name !== name);
+
+  versionStore.clearVersions(name); // Clear history for this file
+
+  saveState();
+  res.json({ status: "deleted", fileName: name });
+});
+
+app.post('/api/state/reset', (req: Request, res: Response) => {
+  const defaultAppState = {
+    chatMessages: [
+      { id: 1, role: 'assistant', content: 'Hello! I\'m your AI builder. How can I help you today?', timestamp: new Date().toLocaleTimeString() }
+    ],
+    currentCode: `import React from 'react';
+
+export default function App() {
+  return (
+    <div className="p-8">
+      <h1 className="text-4xl font-bold">Hello World</h1>
+      <p className="mt-4 text-gray-600">Start building your amazing project.</p>
+    </div>
+  );
+}`
+  };
+
+  fileStates = {
+    'App.tsx': defaultAppState
+  };
+
+  fileList = [
+    { name: "App.tsx", type: "file" }
+  ];
+
+  versionStore.clearVersions(); // Clear all version history
+
+  saveState();
+  res.json({ status: "reset_complete" });
 });
 
 app.post('/api/agent/generate', async (req: Request, res: Response) => {
-    try {
-        const { prompt: rawPrompt, previousPlan } = req.body;
+  try {
+    const { prompt: rawPrompt, previousPlan, fileName = 'App.tsx' } = req.body;
 
-        // 1. Sanitize prompt
-        const prompt = sanitizePrompt(rawPrompt);
+    if (!fileStates[fileName]) {
+      fileStates[fileName] = { chatMessages: [], currentCode: "" };
+    }
 
-        // 2. Add user message to history
-        const newMessage = {
-            id: chatMessages.length + 1,
-            role: 'user',
-            content: prompt,
-            timestamp: new Date().toLocaleTimeString()
-        };
-        chatMessages.push(newMessage as any);
+    // 1. Sanitize prompt
+    const prompt = sanitizePrompt(rawPrompt);
 
-        saveState(); // Save state after adding user message
+    // 2. Add user message to history
+    const newMessage = {
+      id: fileStates[fileName].chatMessages.length + 1,
+      role: 'user',
+      content: prompt,
+      timestamp: new Date().toLocaleTimeString()
+    };
+    fileStates[fileName].chatMessages.push(newMessage as any);
 
-        // 3. Run Pipeline (Asynchronous)
-        const plan = await runPlanner(prompt, previousPlan);
-        const parsedPlan = JSON.parse(plan);
+    saveState(); // Save state after adding user message
 
-        console.log(`[BACKEND] Planner generated plan. Type: ${previousPlan ? 'Incremental (Operations Applied)' : 'Initial'}`);
-        if (previousPlan) {
-            console.log(`[BACKEND] Merged Plan Strategy: ${parsedPlan.layoutStrategy.substring(0, 50)}...`);
-        }
+    // 3. Run Pipeline (Asynchronous)
+    const plan = await runPlanner(prompt, previousPlan);
+    const parsedPlan = JSON.parse(plan);
 
-        const code = await runGenerator(prompt, plan);
-        const explanation = await runExplainer(prompt, plan, previousPlan);
-        const validation = await runValidator(code);
+    console.log(`[BACKEND] Planner generated plan for ${fileName}. Type: ${previousPlan ? 'Incremental' : 'Initial'}`);
 
-        if (!validation.valid) {
-            console.error("Security/Validation Failure:", validation.errors);
-            throw new Error(`Security Violation: ${validation.errors.join(". ")}`);
-        }
+    // Get previous code for regeneration context
+    const previousCode = fileStates[fileName]?.currentCode || "";
+    const code = await runGenerator(prompt, plan, previousCode);
+    const explanation = await runExplainer(prompt, plan, previousPlan);
+    const validation = await runValidator(code);
 
-        // 3.1 UI Tree Pipeline
-        // Parse the generated code into the canonical UI Tree
-        const { parseJsxToTree, reconstructFullCode } = require('./agent/uiTree'); // Lazy load
-        let uiTree;
-        let finalCode = code;
+    if (!validation.valid) {
+      console.error("Security/Validation Failure:", validation.errors);
+      throw new Error(`Security Violation: ${validation.errors.join(". ")}`);
+    }
 
-        try {
-            uiTree = parseJsxToTree(code);
-            console.log("[BACKEND] Parsed JSX to UITree successfully.");
+    // 4. Update File State
+    fileStates[fileName].currentCode = code;
 
-            // Re-serialize immediately to ensure canonical source of truth matches output
-            // This ensures what we confirm to the user IS the tree's representation
-            finalCode = reconstructFullCode(uiTree);
-            console.log("[BACKEND] Reconstructed code from UITree.");
-        } catch (treeError: any) {
-            console.error("[BACKEND] Tree Parsing Failed:", treeError.message);
-            console.warn("[BACKEND] Falling back to raw generated code (Tree feature degradation).");
-            // We proceed with raw code if parsing fails to avoid blocking the user
-            // But ideally this should not happen if generator follows constraints
-            uiTree = null;
-        }
+    // Save to version store (UITree is now null/disabled)
+    const newVersion = versionStore.addVersion(fileName, prompt, parsedPlan, code, null as any, explanation);
 
-        // 4. Update Global State
-        // @ts-ignore
-        currentCode = finalCode;
-        console.log(`[BACKEND] Code updated successfully for prompt: "${prompt.substring(0, 30)}..."`);
-        console.log(`[BACKEND] Current Code Length: ${currentCode.length}`);
-
-        // Save to version store
-        const newVersion = versionStore.addVersion(prompt, parsedPlan, finalCode, uiTree!, explanation);
-        console.log(`[BACKEND] Version saved. Total versions: ${versionStore.getAllVersions().length}`);
-
-        const planSummary = `
+    const planSummary = `
 ### 🏗️ Design Plan
 **Intent**: ${parsedPlan.intent}
 **Steps**:
@@ -187,73 +236,74 @@ ${parsedPlan.steps.map((s: string) => `- ${s}`).join('\n')}
 ${explanation}
         `.trim();
 
-        const aiMessage = {
-            id: chatMessages.length + 1,
-            role: 'assistant',
-            content: planSummary,
-            timestamp: new Date().toLocaleTimeString()
-        };
-        chatMessages.push(aiMessage as any);
+    const aiMessage = {
+      id: fileStates[fileName].chatMessages.length + 1,
+      role: 'assistant',
+      content: planSummary,
+      timestamp: new Date().toLocaleTimeString()
+    };
+    fileStates[fileName].chatMessages.push(aiMessage as any);
 
-        saveState(); // Save state after adding AI message and updating code
+    saveState();
 
-        // 4. Return combined result as requested
-        res.json({
-            plan: parsedPlan,
-            code,
-            explanation,
-            version: newVersion
-        });
+    res.json({
+      plan: parsedPlan,
+      code,
+      explanation,
+      version: newVersion
+    });
 
-    } catch (error: any) {
-        console.error("Agent Pipeline Error:", error);
-
-        const isQuotaError = error.message.includes("Quota Exceeded") || error.message.includes("429") || error.message.includes("rate limits");
-        const status = isQuotaError ? 429 : 500;
-
-        res.status(status).json({ error: error.message || "Pipeline failed" });
-    }
+  } catch (error: any) {
+    console.error("Agent Pipeline Error:", error);
+    const isQuotaError = error.message.includes("Quota Exceeded") || error.message.includes("429") || error.message.includes("rate limits");
+    res.status(isQuotaError ? 429 : 500).json({ error: error.message || "Pipeline failed" });
+  }
 });
 
 
 app.post('/api/agent/refactor', (req: Request, res: Response) => {
-    res.json({ status: "refactoring_started" });
+  res.json({ status: "refactoring_started" });
 });
 
 app.post('/api/agent/regenerate', (req: Request, res: Response) => {
-    res.json({ status: "regenerating" });
+  res.json({ status: "regenerating" });
 });
 
 app.post('/api/version/rollback', (req: Request, res: Response) => {
-    const { id } = req.body;
-    const version = versionStore.rollback(id);
+  const { id, fileName = 'App.tsx' } = req.body;
+  const version = versionStore.rollback(fileName, id);
 
-    if (!version) {
-        return res.status(404).json({ error: "Version not found" });
-    }
+  if (!version) {
+    return res.status(404).json({ error: "Version not found" });
+  }
 
-    currentCode = version.code;
-    saveState(); // Save state after rollback
-    res.json({
-        status: "rolled_back",
-        version
-    });
+  if (fileStates[fileName]) {
+    fileStates[fileName].currentCode = version.code;
+  }
+
+  saveState();
+  res.json({
+    status: "rolled_back",
+    version
+  });
 });
 
 app.get('/api/versions', (req: Request, res: Response) => {
-    res.json(versionStore.getAllVersions());
+  const fileName = (req.query.fileName as string) || 'App.tsx';
+  res.json(versionStore.getAllVersions(fileName));
 });
 
 // Serve static frontend in production
 const CLIENT_BUILD_PATH = path.join(__dirname, '../../client/dist');
 if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(CLIENT_BUILD_PATH));
+  app.use(express.static(CLIENT_BUILD_PATH));
 
-    app.get(/.*/, (req: Request, res: Response) => {
-        res.sendFile(path.join(CLIENT_BUILD_PATH, 'index.html'));
-    });
+  app.get(/.*/, (req: Request, res: Response) => {
+    res.sendFile(path.join(CLIENT_BUILD_PATH, 'index.html'));
+  });
 }
 
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
+
